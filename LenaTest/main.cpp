@@ -21,7 +21,11 @@ int main(int argc, char** argv)
     //Másolások
     Mat invertsrc = src.clone();
     Mat invertsrc2 = src.clone();
+    Mat invertsrc3 = src.clone();
     Mat negsrc = gsrc2.clone();
+    
+    //
+    bitwise_not(src, invertsrc3);
     
     //full255 feltöltése 255,255,255 értékü pixelekkel
     Mat full255 = src.clone();
@@ -39,7 +43,9 @@ int main(int argc, char** argv)
     invertsrc2 = full255 - invertsrc2;
 
     //255 - gsrc
-    negsrc = full255 - negsrc;
+    Mat gr255;
+    cvtColor(full255, gr255, cv::COLOR_BGR2GRAY);
+    negsrc = gr255 - negsrc;
 
     //Végig iterálunk a pixeleken és kivonjuk minden r/g/b értékét 255-ből
     for (int i = 0; i < invertsrc.rows; i++)
@@ -58,11 +64,18 @@ int main(int argc, char** argv)
     }
 
     imshow("Original", src);
+    waitKey();
     imshow("Inverted 1", invertsrc);
+    waitKey();
     imshow("Inverted 2", invertsrc2);
+    waitKey();
+    imshow("Inverted 3", invertsrc3);
+    waitKey();
     imshow("Gray scale 1", gsrc1);
+    waitKey();
     imshow("Gray scale 2", gsrc2);
-    imshow("Negsrc", negsrc);
+    waitKey();
+    imshow("Gray Inverted", negsrc);
     waitKey();
     return EXIT_SUCCESS;
 }
