@@ -1,120 +1,587 @@
-﻿#include "opencv2/highgui.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/imgproc.hpp"
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <iostream>
+#include <vector>
+#include <sstream>
+#include <algorithm>
 
 using namespace std;
 using namespace cv;
 
-int main(int argc, char** argv)
+const int RANGEMIN = 0;
+const int RANGEMAX = 256;
+const int RADIUS = 3;
+
+Mat Szethuzas(Mat kep, int max, int min, short int type) {
+    //type 1:sima, 2: gyokos, 3: negyzetes
+    for (int i = 0; i < kep.rows; i++) {
+        for (int j = 0; j < kep.cols; j++) {
+            if (type == 1) {
+                kep.at<unsigned char>(i, j) = 255 * (kep.at<unsigned char>(i, j) - min) / (max - min);
+            }
+            else if (type == 2) {
+                kep.at<unsigned char>(i, j) = 255 * sqrtf((kep.at<unsigned char>(i, j) - min) / (max - min * 1.0f));
+            }
+            else {
+                kep.at<unsigned char>(i, j) = 255 * pow((kep.at<unsigned char>(i, j) - min) / (max - min * 1.0f), 2);
+            }
+        }
+    }
+    return kep;
+}
+
+void hisztogramSzethuzas(Mat kep) {
+    int histogramSize = RANGEMAX;
+    float range[] = { RANGEMIN, RANGEMAX };
+    const float* histogramRange = { range };
+    bool uniform = true;
+    bool accumulate = false;
+
+    Mat hist;
+    calcHist(&kep, 1, 0, Mat(), hist, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    imshow("Alap Kep", kep);
+
+    std::vector<float> histogramArray;
+    if (hist.isContinuous()) {
+        histogramArray.assign((float*)hist.data, (float*)hist.data + hist.total() * hist.channels());
+    }
+    else {
+        for (int i = 0; i < hist.rows; ++i) {
+            histogramArray.insert(histogramArray.end(), hist.ptr<float>(i), hist.ptr<float>(i) + hist.cols * hist.channels());
+        }
+    }
+
+    int histogramWidth = 512;
+    int histogramHeight = 400;
+    int stretchRate = cvRound((double)histogramWidth / histogramSize);
+
+    Mat histogramImage(histogramHeight, histogramWidth, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(hist, hist, 0, histogramImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(histogramImage, cv::Point(stretchRate * (i - 1), histogramHeight - cvRound(hist.at<float>(i - 1))),
+            Point(stretchRate * (i), histogramHeight - cvRound(hist.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Alap Hisztogramm", histogramImage);
+
+    int max, min;
+
+    for (int i = 0; i < histogramArray.size(); i++) {
+        if (histogramArray[i] != 0) {
+            min = i;
+        }
+    }
+
+    for (int i = histogramArray.size() - 1; i >= 0; i--) {
+        if (histogramArray[i] != 0) {
+            max = i;
+        }
+    }
+
+    //Mat szurkeKepSzethuzas = Szethuzas(kep.clone(), max, min, 1);
+    //Mat szurkeKepSzethuzas = Szethuzas(kep.clone(), max, min, 2);
+    Mat szurkeKepSzethuzas = Szethuzas(kep.clone(), max, min, 3);
+
+    imshow("Szethuzott kep", szurkeKepSzethuzas);
+
+    Mat stretchedHistogram;
+    calcHist(&szurkeKepSzethuzas, 1, 0, Mat(), stretchedHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat stretchHistogramImage(histogramHeight, histogramWidth, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(stretchedHistogram, stretchedHistogram, 0, stretchHistogramImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(stretchHistogramImage, cv::Point(stretchRate * (i - 1), histogramHeight - cvRound(stretchedHistogram.at<float>(i - 1))),
+            Point(stretchRate * (i), histogramHeight - cvRound(hist.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Szethuzott hisztogram", stretchHistogramImage);
+}
+
+auto Kiegyenlites(Mat kep, Mat hist, int N, int K) {
+    int LUT[RANGEMAX];
+    float sum = 0;
+    int i = 0;
+    for (int j = 0; j < RANGEMAX; j++) {
+        if (sum < N / K) {
+            sum += hist.at<float>(j);
+        }
+        else {
+            i++;
+            sum = 0;
+        }
+        LUT[j] = i * (float)RANGEMAX / K;
+    }
+    for (int i = 0; i < kep.rows; i++) {
+        for (int j = 0; j < kep.cols; j++) {
+            kep.at<unsigned char>(i, j) = LUT[kep.at<unsigned char>(i, j)];
+        }
+    }
+    return kep;
+}
+
+void hisztogramKiegyenlites(Mat kep) {
+    int histogramSize = RANGEMAX;
+    float range[] = { RANGEMIN, RANGEMAX };
+    const float* histogramRange = { range };
+    bool uniform = true;
+    bool accumulate = false;
+
+    Mat szurkeKep_histogram;
+    calcHist(&kep, 1, 0, Mat(), szurkeKep_histogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat LUThist = szurkeKep_histogram.clone();
+
+    int hist_width = 512, hist_height = 400;
+    int bin_w = cvRound((double)hist_width / histogramSize);
+
+    Mat szurkeKep_histogramImage(hist_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    normalize(szurkeKep_histogram, szurkeKep_histogram, 0, szurkeKep_histogramImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(szurkeKep_histogramImage, cv::Point(bin_w * (i - 1), hist_height - cvRound(szurkeKep_histogram.at<float>(i - 1))),
+            Point(bin_w * (i), hist_height - cvRound(szurkeKep_histogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Kep", kep);
+    imshow("Hisztogram", szurkeKep_histogramImage);
+
+    Mat negyArnyalatosKiegyenlitettKep = Kiegyenlites(kep.clone(), LUThist, kep.size().area(), 4);
+    Mat negyArnyalatosKiegyenlitettKepHistogram;
+    Mat negyArnyalatosKiegyenlitettKepHistogramImage(hist_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    calcHist(&negyArnyalatosKiegyenlitettKep, 1, 0, Mat(), negyArnyalatosKiegyenlitettKepHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+    normalize(negyArnyalatosKiegyenlitettKepHistogram, negyArnyalatosKiegyenlitettKepHistogram, 0, negyArnyalatosKiegyenlitettKepHistogramImage.rows, cv::NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(negyArnyalatosKiegyenlitettKepHistogramImage, cv::Point(bin_w * (i - 1), hist_height - cvRound(negyArnyalatosKiegyenlitettKepHistogram.at<float>(i - 1))),
+            cv::Point(bin_w * (i), hist_height - cvRound(negyArnyalatosKiegyenlitettKepHistogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Kiegyenlitett kep, 4 arnyalat", negyArnyalatosKiegyenlitettKep);
+    imshow("Kiegyenlitett hisztogram, 4 arnyalat", negyArnyalatosKiegyenlitettKepHistogramImage);
+
+    Mat tizenhatArnyalatosKiegyenlitettKep = Kiegyenlites(kep.clone(), LUThist, kep.size().area(), 16);
+    Mat tizenhatArnyalatosKiegyenlitettKepHistogram;
+    Mat tizenhatArnyalatosKiegyenlitettKepHistogramImage(hist_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    calcHist(&tizenhatArnyalatosKiegyenlitettKep, 1, 0, Mat(), tizenhatArnyalatosKiegyenlitettKepHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+    normalize(tizenhatArnyalatosKiegyenlitettKepHistogram, tizenhatArnyalatosKiegyenlitettKepHistogram, 0, tizenhatArnyalatosKiegyenlitettKepHistogramImage.rows, cv::NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(tizenhatArnyalatosKiegyenlitettKepHistogramImage, cv::Point(bin_w * (i - 1), hist_height - cvRound(tizenhatArnyalatosKiegyenlitettKepHistogram.at<float>(i - 1))),
+            cv::Point(bin_w * (i), hist_height - cvRound(tizenhatArnyalatosKiegyenlitettKepHistogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Kiegyenlitett kep, 16 arnyalat", tizenhatArnyalatosKiegyenlitettKep);
+    imshow("Kiegyenlitett hisztogram, 16 arnyalat", tizenhatArnyalatosKiegyenlitettKepHistogramImage);
+}
+
+void konvulucio(Mat src) {
+    int histogramSize = RANGEMAX;
+    float range[] = { RANGEMIN, RANGEMAX };
+    const float* histogramRange = { range };
+    bool uniform = true;
+    bool accumulate = false;
+
+    Mat histogram;
+    calcHist(&src, 1, 0, Mat(), histogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    int histogram_width = 512, histogram_height = 400;
+    int column_width = cvRound((double)histogram_width / histogramSize);
+
+    Mat histogramImage(histogram_height, histogram_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    normalize(histogram, histogram, 0, histogramImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(histogramImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(histogram.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(histogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    Mat base = src.clone();
+    imshow("Elotte", src);
+    imshow("Konvolucio Elotte Histogram", histogramImage);
+
+    Size s = base.size();
+    int HEIGHT = s.height;
+    int WIDTH = s.width;
+    Mat utanaKep = base.clone();
+
+    Mat kernel = (Mat_<double>(3, 3) << 1.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0
+        , 0, 0, 0
+        , -1.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0);
+
+    int size = 5;
+    double gauss[5][5];
+    int sideStep = (size - 1) / 2;
+    int kernelSugar = ((kernel.size().height - 1) / 2);
+
+    for (int z = 0; z < 1; z++)
+    {
+        for (int i = 0; i < HEIGHT - (2 * kernelSugar); i++) {
+            for (int j = 0; j < WIDTH - (2 * kernelSugar); j++) {
+                double sum = 0;
+                for (int k = 0; k < 2 * kernelSugar + 1; k++) {
+                    for (int l = 0; l < 2 * kernelSugar + 1; l++) {
+                        if ((i + k < HEIGHT - 1 && i + k >= 0) || (j + l < WIDTH - 1 && j + l >= 0)) {
+                            sum += (double)base.at<unsigned char>(i + k, j + l) * kernel.at<double>(k, l);
+                        }
+                    }
+                }
+                utanaKep.at<unsigned char>(i + kernelSugar, j + kernelSugar) = (unsigned char)abs(sum);
+            }
+        }
+        base = utanaKep.clone();
+    }
+    Mat stretchHistogram;
+    calcHist(&src, 1, 0, Mat(), stretchHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat stretchHistogramImage(histogram_height, histogram_width, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(stretchHistogram, stretchHistogram, 0, stretchHistogramImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(stretchHistogramImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(stretchHistogram.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(histogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Konvulucio Utan Histogram", stretchHistogramImage);
+    imshow("Konvulucio Utan", utanaKep);
+}
+
+auto pixel(Mat src, int c, int r) {
+
+    if (c < 0) {
+        c = 0;
+    }
+    if (c >= src.cols) {
+        c = src.cols - 1;
+    }
+    if (r < 0) {
+        r = 0;
+    }
+    if (r >= src.rows) {
+        r = src.rows - 1;
+    }
+
+    return src.at<unsigned char>(r, c);
+}
+
+auto kepAtlagVagySzoras(Mat kep, int radius, Mat avg) {
+    Mat eredmeny = Mat::zeros(kep.rows, kep.cols, kep.type());
+    for (int eredmeny_row = 0; eredmeny_row < eredmeny.rows; eredmeny_row++) {
+        for (int eredmeny_column = 0; eredmeny_column < eredmeny.cols; eredmeny_column++) {
+            float sum = 0;
+            for (int kep_row = eredmeny_row - radius; kep_row <= eredmeny_row + radius; kep_row++) {
+                for (int kep_column = eredmeny_column - radius; kep_column <= eredmeny_column + radius; kep_column++) {
+                    if (!avg.empty()) {
+                        sum += pow((pixel(kep, kep_column, kep_row) - pixel(avg, eredmeny_column, eredmeny_row)), 2);
+                    }
+                    else {
+                        sum += pixel(kep, kep_column, kep_row);
+                    }
+                }
+            }
+            eredmeny.at<unsigned char>(eredmeny_row, eredmeny_column) = sum / (float)pow((2 * radius + 1), 2);
+        }
+    }
+    return eredmeny;
+}
+
+auto Wallis(Mat kep, Mat avg, Mat variance, int contrast, float cont_mod, int brightness, float bright_mod) {
+    Mat wallis = Mat::zeros(kep.rows, kep.cols, kep.type());
+
+    for (int wallis_row = 0; wallis_row < wallis.rows; wallis_row++) {
+        for (int wallis_column = 0; wallis_column < wallis.cols; wallis_column++) {
+            auto tmp = ((kep.at<unsigned char>(wallis_row, wallis_column) - avg.at<unsigned char>(wallis_row, wallis_column))
+                * ((cont_mod * contrast) / (contrast + (cont_mod * sqrt(variance.at<unsigned char>(wallis_row, wallis_column))))))
+                + ((bright_mod * brightness) + ((1.0f - bright_mod) * avg.at<unsigned char>(wallis_row, wallis_column)));
+
+            if (tmp > 255) {
+                tmp = 255;
+            }
+            else if (tmp < 0) {
+                tmp = 0;
+            }
+            wallis.at<unsigned char>(wallis_row, wallis_column) = tmp;
+        }
+    }
+
+    return wallis;
+}
+
+void wallisSzuro(Mat kep) {
+    int histogramSize = RANGEMAX;
+    float range[] = { RANGEMIN, RANGEMAX };
+    const float* histogramRange = { range };
+    bool uniform = true;
+    bool accumulate = false;
+
+    Mat histogram;
+    calcHist(&kep, 1, 0, Mat(), histogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    int histogram_width = 512, histogram_height = 400;
+    int column_width = cvRound((double)histogram_width / histogramSize);
+
+    Mat histogramImage(histogram_height, histogram_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    normalize(histogram, histogram, 0, histogramImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(histogramImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(histogram.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(histogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Kep", kep);
+    imshow("Hisztogram", histogramImage);
+
+    Mat atlagKep = kepAtlagVagySzoras(kep, 8, cv::Mat());
+    Mat szorasKep = kepAtlagVagySzoras(kep, 8, atlagKep);
+    Mat wallisKep = Wallis(kep, atlagKep, szorasKep, 100, 2.5f, 50, 0.8);
+
+    Mat wallisHistogram;
+    calcHist(&wallisKep, 1, 0, Mat(), wallisHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat wallisHistImage(histogram_height, histogram_width, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(wallisHistogram, wallisHistogram, 0, wallisHistImage.rows, NORM_MINMAX, -1, Mat());
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(wallisHistImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(wallisHistogram.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(wallisHistogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Wallis kep", wallisKep);
+    imshow("Wallis hisztogram", wallisHistImage);
+}
+
+int compare(const void* p1, const void* p2)
 {
-    CommandLineParser parser(argc, argv, "{@input | lena.jpg | input image}");
+    return *(const unsigned char*)p1 - *(const unsigned char*)p2;
+}
 
-    //Színes beolvasás
-    Mat src = imread(samples::findFile(parser.get<String>("@input")), IMREAD_COLOR);
-    imshow("Original", src);
+auto Outlier(Mat kep, int radius, int threshold) {
 
-    //Grayscale beolvasás IMREAD_GRAYSCALE flaggel
-    Mat gsrc1 = imread(samples::findFile(parser.get<String>("@input")), IMREAD_GRAYSCALE);
-    imshow("Gray scale 1", gsrc1);
+    Mat atlag = Mat::zeros(kep.rows, kep.cols, kep.type());
 
-    //Színesként kiolvassuk és szürke color_space-t húzunk rá majd elmentjük a gsrc obejctbe
-    Mat gsrc2;
-    cvtColor(src, gsrc2, cv::COLOR_BGR2GRAY);
-    imshow("Gray scale 2", gsrc2);
+    for (int atlag_row = 0; atlag_row < atlag.rows; atlag_row++) {
+        for (int atlag_column = 0; atlag_column < atlag.cols; atlag_column++) {
+            float sum = 0;
 
-    //Hisztogram kiszámolása
-    int histSize = 256; // hány elemű lesz a hisztogram
-    float range[] = { 0, 256 }; //the upper boundary is exclusive
-    const float* histRange = { range };
-    bool uniform = true, accumulate = false;
-    Mat hist; // itt fogjuk tárolni a hisztogramot
-    calcHist(&gsrc1, 1, 0, Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
+            for (int src_r = atlag_row - radius; src_r <= atlag_row + radius; src_r++) {
+                for (int src_c = atlag_column - radius; src_c <= atlag_column + radius; src_c++) {
 
-    //Hisztogram kirajzolása
-    int hist_w = 512, hist_h = 400; // ezek a változók határozzák meg, hogy mekkora lesz a hisztogramot kirajzoló kép
-    int bin_w = cvRound((double)hist_w / histSize); // oszlopok szélessége
-    Mat histImage(hist_h, hist_w, CV_8UC3, Scalar(0, 0, 0)); // létrehozunk egy adott méretű, 3 csatornás, csatornánként 8 bites fekete képet
-    normalize(hist, hist, 0, histImage.rows, NORM_MINMAX, -1, Mat()); // normalizáljuk magát a hisztogramot, hogy az oszlopok magassága megfeleljen a kép magasságának
-    for (int i = 1; i < histSize; i++)
-    {
-        line(histImage, Point(bin_w * (i - 1), hist_h - cvRound(hist.at<float>(i - 1))), Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i))), Scalar(255, 0, 0), 2, 8, 0);
-        line(histImage, Point(bin_w * (i - 1), hist_h - cvRound(hist.at<float>(i - 1))), Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i))), Scalar(0, 255, 0), 2, 8, 0);
-        line(histImage, Point(bin_w * (i - 1), hist_h - cvRound(hist.at<float>(i - 1))), Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i))), Scalar(0, 0, 255), 2, 8, 0);
-    }
+                    if (src_r == atlag_row && src_c == atlag_column) {
+                        continue;
+                    }
 
-    imshow("Hisztogram", histImage);
-
-    //Invertálás 1. Végig iterálunk a pixeleken és kivonjuk minden r/g/b értékét 255-ből
-    Mat invertsrc = src.clone();
-    for (int i = 0; i < invertsrc.rows; i++)
-    {
-        for (int j = 0; j < invertsrc.cols; j++)
-        {
-            Vec3b intensity;
-            intensity = invertsrc.at<Vec3b>(i, j);
-            uchar blue = intensity.val[0];
-            uchar green = intensity.val[1];
-            uchar red = intensity.val[2];
-            invertsrc.at<Vec3b>(i, j)[0] = 255 - blue;
-            invertsrc.at<Vec3b>(i, j)[1] = 255 - green;
-            invertsrc.at<Vec3b>(i, j)[2] = 255 - red;
+                    sum += pixel(kep, src_c, src_r);
+                }
+            }
+            atlag.at<unsigned char>(atlag_row, atlag_column) = sum / (float)(pow((2 * radius + 1), 2) - 1);
         }
     }
 
-    imshow("Inverted 1", invertsrc);
+    Mat kimenet = Mat::zeros(kep.rows, kep.cols, kep.type());
 
-    //Invertálás 2. substract() függvénnyel
-    Mat invertsrc2 = src.clone();
-    Mat full255 = src.clone();
-
-    for (int i = 0; i < full255.rows; i++) //full255 feltöltése 255, 255, 255 értékü pixelekkel
-    {
-        for (int j = 0; j < full255.cols; j++)
-        {
-            full255.at<Vec3b>(i, j)[0] = 255;
-            full255.at<Vec3b>(i, j)[1] = 255;
-            full255.at<Vec3b>(i, j)[2] = 255;
+    for (int kimenet_row = 0; kimenet_row < kimenet.rows; kimenet_row++) {
+        for (int kimenet_column = 0; kimenet_column < kimenet.cols; kimenet_column++) {
+            if (abs(atlag.at<unsigned char>(kimenet_row, kimenet_column) - kep.at<unsigned char>(kimenet_row, kimenet_column)) <= threshold)
+                kimenet.at<unsigned char>(kimenet_row, kimenet_column) = kep.at<unsigned char>(kimenet_row, kimenet_column);
+            else
+                kimenet.at<unsigned char>(kimenet_row, kimenet_column) = atlag.at<unsigned char>(kimenet_row, kimenet_column);
         }
     }
-    invertsrc2 = full255 - invertsrc2; // kivonjuk a két Mat objectet egymásból
 
-    imshow("Inverted 2", invertsrc2);
-    
-    //Invertálás bitwise_not() függvénnyel
-    Mat invertsrc3 = src.clone();
-    bitwise_not(src, invertsrc3);
-    
-    imshow("Inverted 3", invertsrc3);
+    return kimenet;
+}
 
-    //grayscale invertálás 255 - gsrc
-    Mat negsrc = gsrc2.clone();
-    Mat gr255;
-    cvtColor(full255, gr255, cv::COLOR_BGR2GRAY);
-    negsrc = gr255 - negsrc;
+void nemlinearis(Mat kep) {
+    int histogramSize = RANGEMAX;
+    float range[] = { RANGEMIN, RANGEMAX };
+    const float* histogramRange = { range };
+    bool uniform = true;
+    bool accumulate = false;
 
-    imshow("Gray Inverted", negsrc);
+    Mat hist;
+    calcHist(&kep, 1, 0, Mat(), hist, 1, &histogramSize, &histogramRange, uniform, accumulate);
 
-    //Kép elmentése
-    vector<int> compression_params;
-    compression_params.push_back(IMWRITE_JPEG_QUALITY);
-    compression_params.push_back(90); // itt adjuk meg a minőséget
-    bool result = false;
-    try
+    int hist_width = 512, histogram_height = 400;
+    int column_width = cvRound((double)hist_width / histogramSize);
+
+    Mat histImage(histogram_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    normalize(hist, hist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histogramSize; i++)
     {
-        result = imwrite("saved_image1.jpg", gsrc1, compression_params);
+        line(histImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(hist.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(hist.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
     }
-    catch (const cv::Exception& ex)
-    {
-        fprintf(stderr, "Exception saving file: %s\n", ex.what());
-    }
-    if (result)
-        printf("File saved.\n");
-    else
-        printf("ERROR: Can't save file.\n");
 
-    compression_params.pop_back();
-    compression_params.pop_back();
+    imshow("Zajos kep", kep);
+    imshow("Zajos hisztogram", histImage);
+
+    std::vector<int> compression_params;
+    compression_params.push_back(cv::IMWRITE_JPEG_QUALITY);
+    compression_params.push_back(100);
+
+    Mat outlierSrc = Outlier(kep, RADIUS, 35);
+    Mat outlierHist;
+    calcHist(&outlierSrc, 1, 0, Mat(), outlierHist, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat outlierHistImage(histogram_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(outlierHist, outlierHist, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(outlierHistImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(outlierHist.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(outlierHist.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Outlier szurt kep", outlierSrc);
+    imshow("Outlier szurt hisztogram", outlierHistImage);
+
+    Mat median = Mat::zeros(kep.rows, kep.cols, kep.type());
+    const int len = (2 * RADIUS + 1) * (2 * RADIUS + 1);
+
+    for (int i = 0; i < kep.rows; i++) {
+        for (int j = 0; j < kep.cols; j++) {
+
+            unsigned char pixels[len];
+            int index = 0;
+            for (int k = i - RADIUS; k <= i + RADIUS; k++) {
+                for (int l = j - RADIUS; l <= j + RADIUS; l++) {
+
+                    int k2 = k, l2 = l;
+                    if (k < 0) {
+                        k2 = 0;
+                    }
+                    if (k >= kep.rows) {
+                        k2 = kep.rows - 1;
+                    }
+                    if (l < 0) {
+                        l2 = 0;
+                    }
+                    if (l >= kep.cols) {
+                        l2 = kep.cols - 1;
+                    }
+                    pixels[index] = kep.at<unsigned char>(k2, l2);
+                    index++;
+                }
+            }
+            qsort(pixels, len, sizeof(unsigned char), compare);
+            median.at<unsigned char>(i, j) = pixels[(len + 1) / 2];
+        }
+    }
+
+    Mat medianHistogram;
+    calcHist(&median, 1, 0, Mat(), medianHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat medianHistImage(histogram_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(medianHistogram, medianHistogram, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(medianHistImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(medianHistogram.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(medianHistogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Median szurt kep", median);
+    imshow("Median szurt hisztogram", medianHistImage);
+
+    const int r = RADIUS;
+    Mat fast_median = Mat::zeros(kep.rows, kep.cols, kep.type());
+    const int len2 = 2 * r + 1;
+
+    for (int i = 0; i < kep.rows; i++) {
+        for (int j = 0; j < kep.cols; j++) {
+
+            unsigned char pixels[len2];
+            int index = 0;
+            for (int k = i - r; k <= i + r; k++) {
+
+                unsigned char pixels2[len2];
+                int index2 = 0;
+                for (int l = j - r; l <= j + r; l++) {
+
+                    int k2 = k, l2 = l;
+                    if (k < 0) {
+                        k2 = 0;
+                    }
+                    if (k >= kep.rows) {
+                        k2 = kep.rows - 1;
+                    }
+                    if (l < 0) {
+                        l2 = 0;
+                    }
+                    if (l >= kep.cols) {
+                        l2 = kep.cols - 1;
+                    }
+                    pixels2[index2] = kep.at<unsigned char>(k2, l2);
+                    index2++;
+                }
+                qsort(pixels2, len2, sizeof(unsigned char), compare);
+                pixels[index] = pixels2[(len2 + 1) / 2];
+                index++;
+            }
+            qsort(pixels, len2, sizeof(unsigned char), compare);
+            fast_median.at<unsigned char>(i, j) = pixels[(len2 + 1) / 2];
+        }
+    }
+
+    Mat fastMedianHistogram;
+    calcHist(&fast_median, 1, 0, Mat(), fastMedianHistogram, 1, &histogramSize, &histogramRange, uniform, accumulate);
+
+    Mat fastmedianHistImage(histogram_height, hist_width, CV_8UC3, cv::Scalar(0, 0, 0));
+    normalize(fastMedianHistogram, fastMedianHistogram, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+    for (int i = 1; i < histogramSize; i++)
+    {
+        line(fastmedianHistImage, cv::Point(column_width * (i - 1), histogram_height - cvRound(fastMedianHistogram.at<float>(i - 1))),
+            Point(column_width * (i), histogram_height - cvRound(fastMedianHistogram.at<float>(i))),
+            cv::Scalar(255, 255, 255), 2, 8, 0);
+    }
+
+    imshow("Gyors Median szurt kep", fast_median);
+    imshow("Gyors Median szurt hisztogram", fastmedianHistImage);
+}
+
+int main(int argc, char** argv) {
+
+    CommandLineParser parser(argc, argv, "{@input | peppers_sotet.bmp | input image}");
+    Mat szurkeKep = imread(samples::findFile(parser.get<String>("@input")), IMREAD_GRAYSCALE);
+
+    hisztogramSzethuzas(szurkeKep);
+
+    //hisztogramKiegyenlites(szurkeKep);
+
+    //konvulucio(szurkeKep);
+
+    //wallisSzuro(szurkeKep);
+
+    //nemlinearis(szurkeKep);
+
     waitKey();
 
     return EXIT_SUCCESS;
