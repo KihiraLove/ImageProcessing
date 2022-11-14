@@ -10,679 +10,734 @@ using namespace std;
 using namespace cv;
 using namespace samples;
 
-enum class szethuzas_tipus {
-    linearis,
-    negyzetes,
-    gyokos
+enum class stretch_type {
+    linear,
+    quadratic,
+    squared
 };
 
-Mat szethuzas(Mat kep, int max, int min);
-Mat gyokosSzethuzas(Mat kep, int max, int min);
-Mat negyzetesSzethuzas(Mat kep, int max, int min);
-Mat kiegyenlites(Mat kep, Mat hiszt, int N, int K);
-Mat kepAtlagVagySzoras(Mat kep, int radiusz, Mat atlag);
-Mat wallis(Mat kep, Mat atlag, Mat variancia, int kontraszt, float kont_mod, int fenyero, float feny_mod);
-Mat outlier(Mat kep, int radiusz, int hatar);
+Mat linearStretch(Mat src, int max, int min);
+Mat squaredStretch(Mat src, int max, int min);
+Mat quadraticStretch(Mat src, int max, int min);
+Mat equalize(Mat src, Mat hist, int N, int K);
+Mat avgOrScatter(Mat src, int radius, Mat avg);
+Mat wallis(Mat src, Mat avg, Mat variance, int sd, float r, int md, float amax);
+Mat sobel(Mat src, bool rowWise);
+Mat laplace4(Mat src);
+Mat laplace8(Mat src);
+Mat outlier(Mat src, int radius, int threshold);
 
-void kepMentes(Mat kep, string nev);
-constexpr const char* enumToString(szethuzas_tipus e);
-unsigned char pixel(Mat kep, int c, int r);
-int osszeHasonlit(const void* p1, const void* p2);
+void saveImage(Mat src, string name);
+constexpr const char* enumToString(stretch_type e);
+unsigned char pixel(Mat src, int c, int r);
+int compare(const void* p1, const void* p2);
 
-void hisztogramSzethuzas(Mat kep, szethuzas_tipus tipus, string nev);
-void hisztogramKiegyenlites(Mat kep, string nev);
-void konvulucio(Mat kep, string nev);
-void wallisSzuro(Mat kep, string nev);
-void nemlinearis(Mat kep, string nev);
+void histStretch(Mat src, stretch_type type, string name);
+void histEq(Mat src, string name);
+void convolution(Mat src, string name);
+void wallisFilter(Mat src, string name, int sd, float r, int md, float amax);
+void noiseFilters(Mat src, string name);
 
-const bool _uniform = true;
-const bool _accumulate = false;
-const int _rangeMin = 0;
-const int _rangeMax = 256;
-const int _radius = 3;
-const int _hisztogramSzelesseg = 512;
-const int _hisztogramMagassag = 400;
+const bool UNIFORM = true;
+const bool ACCUMULATE = false;
+const int RANGE_MIN = 0;
+const int RANGE_MAX = 256;
+const int RADIUS = 3;
+const int HIST_W = 512;
+const int HIST_H = 400;
+const string INPUT_PATH = "images/original/";
+const string OUTPUT_PATH = "images/output/";
 
 int main() {
-    Mat lena = imread(findFile("images/lena.bmp"), IMREAD_GRAYSCALE);
-    Mat lena_vilagos = imread(findFile("images/lena_vilagos.bmp"), IMREAD_GRAYSCALE);
-    Mat bridge = imread(findFile("images/bridge.bmp"), IMREAD_GRAYSCALE);
-    Mat boat_sotet = imread(findFile("images/boat_sotet.bmp"), IMREAD_GRAYSCALE);
-    Mat airplane = imread(findFile("images/airplane.bmp"), IMREAD_GRAYSCALE);
-    Mat peppers_sotet = imread(findFile("images/peppers_sotet.bmp"), IMREAD_GRAYSCALE);
-    Mat peppers_vilagos = imread(findFile("images/peppers_vilagos.bmp"), IMREAD_GRAYSCALE);
-    Mat barbara_gauss = imread(findFile("images/0.025.bmp"), IMREAD_GRAYSCALE);
-    Mat barbara_saltpepper = imread(findFile("images/0.1.bmp"), IMREAD_GRAYSCALE);
-    Mat montage = imread(findFile("images/montage.jpg"), IMREAD_GRAYSCALE);
-    Mat mopntage_zajos = imread(findFile("images/montage_zajos.jpg"), IMREAD_GRAYSCALE);
+    Mat lena = imread(findFile(INPUT_PATH + "lena.bmp"), IMREAD_GRAYSCALE);
+    Mat lena_vilagos = imread(findFile(INPUT_PATH + "lena_vilagos.bmp"), IMREAD_GRAYSCALE);
+    Mat bridge = imread(findFile(INPUT_PATH + "bridge.bmp"), IMREAD_GRAYSCALE);
+    Mat boat_sotet = imread(findFile(INPUT_PATH + "boat_sotet.bmp"), IMREAD_GRAYSCALE);
+    Mat airplane = imread(findFile(INPUT_PATH + "airplane.bmp"), IMREAD_GRAYSCALE);
+    Mat peppers_sotet = imread(findFile(INPUT_PATH + "peppers_sotet.bmp"), IMREAD_GRAYSCALE);
+    Mat peppers_vilagos = imread(findFile(INPUT_PATH + "peppers_vilagos.bmp"), IMREAD_GRAYSCALE);
+    Mat barbara_gauss = imread(findFile(INPUT_PATH + "0.025.bmp"), IMREAD_GRAYSCALE);
+    Mat barbara_saltpepper = imread(findFile(INPUT_PATH + "0.1.bmp"), IMREAD_GRAYSCALE);
+    Mat montage = imread(findFile(INPUT_PATH + "montage.jpg"), IMREAD_GRAYSCALE);
+    Mat montage_zajos = imread(findFile(INPUT_PATH + "montage_zajos.jpg"), IMREAD_GRAYSCALE);
+
+    saveImage(montage, "montage/montage");
+    saveImage(montage_zajos, "montage_zajos/montage_zajos");
 
     //2.1
-    hisztogramSzethuzas(peppers_sotet, szethuzas_tipus::linearis, "peppers_sotet");
-    hisztogramSzethuzas(boat_sotet, szethuzas_tipus::linearis, "boat_sotet");
+    histStretch(peppers_sotet, stretch_type::linear, "peppers_sotet/peppers_sotet");
+    histStretch(boat_sotet, stretch_type::linear, "boat_sotet/boat_sotet");
 
-    hisztogramSzethuzas(peppers_sotet, szethuzas_tipus::negyzetes, "peppers_sotet");
-    hisztogramSzethuzas(peppers_vilagos, szethuzas_tipus::negyzetes, "peppers_vilagos");
-    hisztogramSzethuzas(lena_vilagos, szethuzas_tipus::negyzetes, "lena_vilagos");
+    histStretch(peppers_sotet, stretch_type::quadratic, "peppers_sotet/peppers_sotet");
+    histStretch(peppers_vilagos, stretch_type::quadratic, "peppers_vilagos/peppers_vilagos");
+    histStretch(lena_vilagos, stretch_type::quadratic, "lena_vilagos/lena_vilagos");
 
-    hisztogramSzethuzas(peppers_sotet, szethuzas_tipus::gyokos, "peppers_sotet");
-    hisztogramSzethuzas(peppers_vilagos, szethuzas_tipus::gyokos, "peppers_vilagos");
-    hisztogramSzethuzas(lena_vilagos, szethuzas_tipus::gyokos, "lena_vilagos");
+    histStretch(peppers_sotet, stretch_type::squared, "peppers_sotet/peppers_sotet");
+    histStretch(peppers_vilagos, stretch_type::squared, "peppers_vilagos/peppers_vilagos");
+    histStretch(lena_vilagos, stretch_type::squared, "lena_vilagos/lena_vilagos");
 
     //2.2
-    hisztogramKiegyenlites(airplane, "airplane");
-    hisztogramKiegyenlites(lena_vilagos, "lena_vilagos");
+    histEq(airplane, "airplane/airplane");
+    histEq(lena_vilagos, "lena_vilagos/lena_vilagos");
 
 
-    //2.3.1
-    
+    //2.3
+    convolution(lena, "lena/lena");
+    convolution(montage, "montage/montage");
+
     //2.4
-    wallisSzuro(montage, "montage");
-    wallisSzuro(bridge, "bridge");
+    wallisFilter(montage, "montage/montage", 100, 2.5f, 128, 0.8f);
+    wallisFilter(bridge, "bridge/bridge", 100, 2.5f, 128, 0.8f);
+
+    wallisFilter(montage, "montage/montage", 100, 2.5f, 32, 0.8f);
+    wallisFilter(bridge, "bridge/bridge", 100, 2.5f, 32, 0.8f);
+
+    wallisFilter(montage, "montage/montage", 100, 2.5f, 256, 0.8f);
+    wallisFilter(bridge, "bridge/bridge", 100, 2.5f, 256, 0.8f);
+
+    wallisFilter(montage, "montage/montage", 50, 2.5f, 256, 0.8f);
+    wallisFilter(bridge, "bridge/bridge", 50, 2.5f, 256, 0.8f);
 
     //2.5
-    nemlinearis(mopntage_zajos, "montage_zajos");
-    nemlinearis(barbara_gauss, "barbara_gauss");
-    nemlinearis(barbara_saltpepper, "barbara_saltpepper");
+    noiseFilters(montage_zajos, "montage_zajos/montage_zajos");
+    noiseFilters(barbara_gauss, "0.025/0.025");
+    noiseFilters(barbara_saltpepper, "0.1/0.1");
 
     waitKey();
 
     return EXIT_SUCCESS;
 }
 
-void kepMentes(Mat kep, string nev) {
-    vector<int> compression_params;
-    compression_params.push_back(IMWRITE_JPEG_QUALITY);
-    compression_params.push_back(90);
+void saveImage(Mat src, string name) {
+    vector<int> compressionParams;
+    compressionParams.push_back(IMWRITE_JPEG_QUALITY);
+    compressionParams.push_back(90);
     bool result = false;
 
     try {
-        result = imwrite("images/" + nev + ".jpg", kep, compression_params);
-    } catch (const cv::Exception& ex) {
+        result = imwrite(OUTPUT_PATH + name + ".jpg", src, compressionParams);
+    }
+    catch (const cv::Exception& ex) {
         fprintf(stderr, "Exception saving file: %s\n", ex.what());
     }
 
     if (result) { printf("File saved.\n"); }
     else { printf("ERROR: Can't save file.\n"); }
 
-    compression_params.pop_back();
-    compression_params.pop_back();
+    compressionParams.pop_back();
+    compressionParams.pop_back();
 }
 
-constexpr const char* enumToString(szethuzas_tipus e) {
-    switch (e)  {
-        case szethuzas_tipus::linearis: return "linearis";
-        case szethuzas_tipus::negyzetes: return "negyzetes";
-        case szethuzas_tipus::gyokos: return "gyokos";
-        default: return "[ERROR]";
+constexpr const char* enumToString(stretch_type e) {
+    switch (e) {
+    case stretch_type::linear: return "linearis";
+    case stretch_type::quadratic: return "negyzetes";
+    case stretch_type::squared: return "gyokos";
+    default: return "[ERROR]";
     }
 }
 
-unsigned char pixel(Mat kep, int c, int r) {
+unsigned char pixel(Mat src, int c, int r) {
 
-    if (c < 0) { c = 0; }
-    if (c >= kep.cols) { c = kep.cols - 1; }
-    if (r < 0) { r = 0; }
-    if (r >= kep.rows) { r = kep.rows - 1; }
+    if (c < 0)
+        c = 0;
+    if (c >= src.cols)
+        c = src.cols - 1;
+    if (r < 0)
+        r = 0;
+    if (r >= src.rows)
+        r = src.rows - 1;
 
-    return kep.at<unsigned char>(r, c);
+    return src.at<unsigned char>(r, c);
 }
 
-int osszeHasonlit(const void* p1, const void* p2)
+int compare(const void* p1, const void* p2)
 {
     return *(const unsigned char*)p1 - *(const unsigned char*)p2;
 }
 
-Mat szethuzas(Mat kep, int max, int min) {
-    for (int i = 0; i < kep.rows; i++) {
-        for (int j = 0; j < kep.cols; j++) {
-            kep.at<unsigned char>(i, j) = 255 * (kep.at<unsigned char>(i, j) - min) / (max - min);
+Mat linearStretch(Mat src, int max, int min) {
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            src.at<unsigned char>(i, j) = 255 * (src.at<unsigned char>(i, j) - min) / (max - min);
         }
     }
-    return kep;
+    return src;
 }
 
-Mat gyokosSzethuzas(Mat kep, int max, int min) {
-    for (int i = 0; i < kep.rows; i++) {
-        for (int j = 0; j < kep.cols; j++) {
-            kep.at<unsigned char>(i, j) = 255 * sqrtf((kep.at<unsigned char>(i, j) - min) / (max - min * 1.0f));
+Mat squaredStretch(Mat src, int max, int min) {
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            src.at<unsigned char>(i, j) = 255 * sqrtf((src.at<unsigned char>(i, j) - min) / (max - min * 1.0f));
         }
     }
-    return kep;
+    return src;
 }
 
-Mat negyzetesSzethuzas(Mat kep, int max, int min) {
-    for (int i = 0; i < kep.rows; i++) {
-        for (int j = 0; j < kep.cols; j++) {
-            kep.at<unsigned char>(i, j) = 255 * pow((kep.at<unsigned char>(i, j) - min) / (max - min * 1.0f), 2);
+Mat quadraticStretch(Mat src, int max, int min) {
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            src.at<unsigned char>(i, j) = 255 * pow((src.at<unsigned char>(i, j) - min) / (max - min * 1.0f), 2);
         }
     }
-    return kep;
+    return src;
 }
 
-Mat kiegyenlites(Mat kep, Mat hiszt, int N, int K) {
-    int table[256];
-    float ossz = 0;
+Mat equalize(Mat src, Mat hist, int N, int K) {
+    int lookUpTable[RANGE_MAX];
+    float sum = 0;
     int i = 0;
-    for (int j = 0; j < 256; j++) {
-        if (ossz < N / K) {
-            ossz += hiszt.at<float>(j);
+    for (int j = 0; j < RANGE_MAX; j++) {
+        if (sum < N / K) {
+            sum += hist.at<float>(j);
         }
         else {
             i++;
-            ossz = 0;
+            sum = 0;
         }
-        table[j] = i * (float)256 / K;
+        lookUpTable[j] = i * (float)RANGE_MAX / K;
     }
-    for (int i = 0; i < kep.rows; i++) {
-        for (int j = 0; j < kep.cols; j++) {
-            kep.at<unsigned char>(i, j) = table[kep.at<unsigned char>(i, j)];
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            src.at<unsigned char>(i, j) = lookUpTable[src.at<unsigned char>(i, j)];
         }
     }
-    return kep;
+    return src;
 }
 
-Mat kepAtlagVagySzoras(Mat kep, int radiusz, Mat atlag) {
-    Mat eredmeny = Mat::zeros(kep.rows, kep.cols, kep.type());
+Mat avgOrScatter(Mat src, int radius, Mat avg) {
+    Mat result = Mat::zeros(src.rows, src.cols, src.type());
 
-    for (int eredmeny_row = 0; eredmeny_row < eredmeny.rows; eredmeny_row++) {
-        for (int eredmeny_column = 0; eredmeny_column < eredmeny.cols; eredmeny_column++) {
+    for (int resultRow = 0; resultRow < result.rows; resultRow++) {
+        for (int resultCol = 0; resultCol < result.cols; resultCol++) {
             float sum = 0;
-            for (int kep_row = eredmeny_row - radiusz; kep_row <= eredmeny_row + radiusz; kep_row++) {
-                for (int kep_column = eredmeny_column - radiusz; kep_column <= eredmeny_column + radiusz; kep_column++) {
-                    if (!atlag.empty()) {
-                        sum += pow((pixel(kep, kep_column, kep_row) - pixel(atlag, eredmeny_column, eredmeny_row)), 2);
+            for (int srcRow = resultRow - radius; srcRow <= resultRow + radius; srcRow++) {
+                for (int srcCol = resultCol - radius; srcCol <= resultCol + radius; srcCol++) {
+                    if (!avg.empty()) {
+                        sum += pow((pixel(src, srcCol, srcRow) - pixel(avg, resultCol, resultRow)), 2);
                     }
                     else {
-                        sum += pixel(kep, kep_column, kep_row);
+                        sum += pixel(src, srcCol, srcRow);
                     }
                 }
             }
-            eredmeny.at<unsigned char>(eredmeny_row, eredmeny_column) = sum / (float)pow((2 * radiusz + 1), 2);
+            result.at<unsigned char>(resultRow, resultCol) = sum / (float)pow((2 * radius + 1), 2);
         }
     }
 
-    return eredmeny;
+    return result;
 }
 
-Mat wallis(Mat kep, Mat atlag, Mat variancia, int kontraszt, float kont_mod, int fenyero, float feny_mod) {
-    Mat wallis = Mat::zeros(kep.rows, kep.cols, kep.type());
+Mat wallis(Mat src, Mat avg, Mat variance, int sd, float r, int md, float amax) {
+    Mat wallis = Mat::zeros(src.rows, src.cols, src.type());
 
-    for (int wallis_row = 0; wallis_row < wallis.rows; wallis_row++) {
-        for (int wallis_column = 0; wallis_column < wallis.cols; wallis_column++) {
-            auto tmp = ((kep.at<unsigned char>(wallis_row, wallis_column) - atlag.at<unsigned char>(wallis_row, wallis_column)) * (((double)kont_mod * kontraszt) / (kontraszt + (kont_mod * sqrt(variancia.at<unsigned char>(wallis_row, wallis_column)))))) + (((double)feny_mod * fenyero) + ((1.0f - feny_mod) * atlag.at<unsigned char>(wallis_row, wallis_column)));
+    for (int wallisRow = 0; wallisRow < wallis.rows; wallisRow++) {
+        for (int wallisCol = 0; wallisCol < wallis.cols; wallisCol++) {
+            unsigned char tmp = ((src.at<unsigned char>(wallisRow, wallisCol) - avg.at<unsigned char>(wallisRow, wallisCol)) * (((double)r * sd) / (sd + (r * sqrt(variance.at<unsigned char>(wallisRow, wallisCol)))))) + (((double)amax * md) + ((1.0f - amax) * avg.at<unsigned char>(wallisRow, wallisCol)));
 
-            if (tmp > 255) {
+            if (tmp > 255)
                 tmp = 255;
-            }
-            else if (tmp < 0) {
+            else if (tmp < 0)
                 tmp = 0;
-            }
-            wallis.at<unsigned char>(wallis_row, wallis_column) = tmp;
+
+            wallis.at<unsigned char>(wallisRow, wallisCol) = tmp;
         }
     }
 
     return wallis;
 }
 
-Mat outlier(Mat kep, int radiusz, int hatar) {
-    Mat atlag = Mat::zeros(kep.rows, kep.cols, kep.type());
+Mat outlier(Mat src, int radius, int threshold) {
+    Mat avg = Mat::zeros(src.rows, src.cols, src.type());
+    Mat result = Mat::zeros(src.rows, src.cols, src.type());
 
-    for (int atlag_row = 0; atlag_row < atlag.rows; atlag_row++) {
-        for (int atlag_column = 0; atlag_column < atlag.cols; atlag_column++) {
+    for (int avgRow = 0; avgRow < avg.rows; avgRow++) {
+        for (int avgCol = 0; avgCol < avg.cols; avgCol++) {
             float sum = 0;
 
-            for (int src_r = atlag_row - radiusz; src_r <= atlag_row + radiusz; src_r++) {
-                for (int src_c = atlag_column - radiusz; src_c <= atlag_column + radiusz; src_c++) {
-
-                    if (src_r == atlag_row && src_c == atlag_column) {
+            for (int srcRow = avgRow - radius; srcRow <= avgRow + radius; srcRow++) {
+                for (int srcCol = avgCol - radius; srcCol <= avgCol + radius; srcCol++) {
+                    if (srcRow == avgRow && srcCol == avgCol) {
                         continue;
                     }
 
-                    sum += pixel(kep, src_c, src_r);
+                    sum += pixel(src, srcCol, srcRow);
                 }
             }
-            atlag.at<unsigned char>(atlag_row, atlag_column) = sum / (float)(pow((2 * radiusz + 1), 2) - 1);
+
+            avg.at<unsigned char>(avgRow, avgCol) = sum / (float)(pow((2 * radius + 1), 2) - 1);
         }
     }
 
-    Mat kimenet = Mat::zeros(kep.rows, kep.cols, kep.type());
-
-    for (int kimenet_row = 0; kimenet_row < kimenet.rows; kimenet_row++) {
-        for (int kimenet_column = 0; kimenet_column < kimenet.cols; kimenet_column++) {
-            if (abs(atlag.at<unsigned char>(kimenet_row, kimenet_column) - kep.at<unsigned char>(kimenet_row, kimenet_column)) <= hatar)
-                kimenet.at<unsigned char>(kimenet_row, kimenet_column) = kep.at<unsigned char>(kimenet_row, kimenet_column);
+    for (int resultRow = 0; resultRow < result.rows; resultRow++) {
+        for (int resultCol = 0; resultCol < result.cols; resultCol++) {
+            if (abs(avg.at<unsigned char>(resultRow, resultCol) - src.at<unsigned char>(resultRow, resultCol)) <= threshold)
+                result.at<unsigned char>(resultRow, resultCol) = src.at<unsigned char>(resultRow, resultCol);
             else
-                kimenet.at<unsigned char>(kimenet_row, kimenet_column) = atlag.at<unsigned char>(kimenet_row, kimenet_column);
+                result.at<unsigned char>(resultRow, resultCol) = avg.at<unsigned char>(resultRow, resultCol);
         }
     }
 
-    return kimenet;
+    return result;
 }
 
-void hisztogramSzethuzas(Mat kep, szethuzas_tipus tipus, string nev) {
-    int hisztogramMeret = _rangeMax;
-    float range[] = { -_rangeMin, _rangeMax };
-    const float* hisztogramRange = { range };
+Mat sobel(Mat src, bool rowWise) {
+    Mat result = src.clone();
 
-    Mat hisztogram;
-    calcHist(&kep, 1, 0, Mat(), hisztogram, 1, &hisztogramMeret, &hisztogramRange, _uniform, _accumulate);
+    for (int r = 0; r < src.rows; r++) {
+        for (int c = 0; c < src.cols; c++) {
+            unsigned char n = pixel(src, c, r - 1);
+            unsigned char ne = pixel(src, c + 1, r - 1);
+            unsigned char e = pixel(src, c + 1, r);
+            unsigned char se = pixel(src, c + 1, r + 1);
+            unsigned char s = pixel(src, c, r + 1);
+            unsigned char sw = pixel(src, c - 1, r + 1);
+            unsigned char w = pixel(src, c - 1, r);
+            unsigned char nw = pixel(src, c - 1, r - 1);
+            float tmp = cv::abs(0.25f * (nw + 2 * w + sw - ne - 2 * e - se));
 
-    imshow(nev, kep);
+            if (rowWise)
+                tmp = cv::abs(0.25f * (-nw - 2 * n - ne + sw + 2 * s + se));
 
-    std::vector<float> hisztogramTomb;
-    if (hisztogram.isContinuous()) {
-        hisztogramTomb.assign((float*)hisztogram.data, (float*)hisztogram.data + hisztogram.total() * hisztogram.channels());
-    }
-    else {
-        for (int i = 0; i < hisztogram.rows; ++i) {
-            hisztogramTomb.insert(hisztogramTomb.end(), hisztogram.ptr<float>(i), hisztogram.ptr<float>(i) + (long)hisztogram.cols * hisztogram.channels());
+            result.at<unsigned char>(r, c) = tmp;
         }
     }
 
-    int szethuzasMertek = cvRound((double)_hisztogramSzelesseg / hisztogramMeret);
+    return result;
+}
 
-    Mat hisztogramKep(_hisztogramMagassag, _hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(hisztogram, hisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
+Mat laplace4(Mat src) {
+    Mat result = src.clone();
 
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(hisztogramKep, cv::Point(szethuzasMertek * (i - 1), _hisztogramMagassag - cvRound(hisztogram.at<float>(i - 1))),
-            Point(szethuzasMertek * (i), _hisztogramMagassag - cvRound(hisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
+    for (int r = 0; r < src.rows; r++) {
+        for (int c = 0; c < src.cols; c++) {
+            unsigned char center = pixel(src, c, r);
+            unsigned char top = pixel(src, c, r - 1);
+            unsigned char bottom = pixel(src, c, r + 1);
+            unsigned char left = pixel(src, c - 1, r);
+            unsigned char right = pixel(src, c + 1, r);
+
+            result.at<unsigned char>(r, c) = cv::abs(left + right + top + bottom - 4 * center);
+        }
     }
 
-    imshow(nev + " alap hisztogram", hisztogramKep);
-    kepMentes(hisztogramKep, nev + "_alap_hisztogram");
+    return result;
+}
 
-    int max;
-    int min;
+Mat laplace8(Mat src) {
+    Mat result = src.clone();
 
-    for (int i = 0; i < hisztogramTomb.size(); i++) {
-        if (hisztogramTomb[i] != 0) {
+    for (int r = 0; r < src.rows; r++) {
+        for (int c = 0; c < src.cols; c++) {
+            unsigned char center = pixel(src, c, r);
+            unsigned char n = pixel(src, c, r - 1);
+            unsigned char ne = pixel(src, c + 1, r - 1);
+            unsigned char e = pixel(src, c + 1, r);
+            unsigned char se = pixel(src, c + 1, r + 1);
+            unsigned char s = pixel(src, c, r + 1);
+            unsigned char sw = pixel(src, c - 1, r + 1);
+            unsigned char w = pixel(src, c - 1, r);
+            unsigned char nw = pixel(src, c - 1, r - 1);
+
+            result.at<unsigned char>(r, c) = cv::abs(n + ne + e + se + s + sw + w + nw - 8 * center);
+        }
+    }
+
+    return result;
+}
+
+void histStretch(Mat src, stretch_type type, string name) {
+    int histSize = RANGE_MAX;
+    float range[] = { RANGE_MIN, RANGE_MAX };
+    const float* histRange = { range };
+    int binW = cvRound((double)HIST_W / histSize);
+    int max = 0;
+    int min = 0;
+    Mat stretchedImg;
+    Mat hist;
+    Mat histImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat stretchedHist;
+    Mat stretchedHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    std::vector<float> histArr;
+
+    calcHist(&src, 1, 0, Mat(), hist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    imshow(name, src);
+    
+    if (hist.isContinuous())
+        histArr.assign((float*)hist.data, (float*)hist.data + hist.total() * hist.channels());
+    else {
+        for (int i = 0; i < hist.rows; ++i)
+            histArr.insert(histArr.end(), hist.ptr<float>(i), hist.ptr<float>(i) + (long)hist.cols * hist.channels());
+    }
+    normalize(hist, hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histSize; i++)
+        line(histImg, cv::Point(binW * (i - 1), HIST_H - cvRound(hist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
+
+    imshow(name + " hisztogram", histImg);
+    saveImage(histImg, name + "_alap_hisztogram");
+
+    for (int i = 0; i < histArr.size(); i++) {
+        if (histArr[i] != 0) {
             min = i;
             break;
         }
     }
 
-    for (int i = hisztogramTomb.size() - 1; i >= 0; i--) {
-        if (hisztogramTomb[i] != 0) {
+    for (int i = histArr.size() - 1; i >= 0; i--) {
+        if (histArr[i] != 0) {
             max = i;
+            break;
         }
     }
 
-    Mat szurkeKepSzethuzas;
+    if (type == stretch_type::linear)
+        stretchedImg = linearStretch(src.clone(), max, min);
+    if (type == stretch_type::squared)
+        stretchedImg = squaredStretch(src.clone(), max, min);
+    if (type == stretch_type::quadratic)
+        stretchedImg = quadraticStretch(src.clone(), max, min);
 
-    if (tipus == szethuzas_tipus::linearis)
-        szurkeKepSzethuzas = szethuzas(kep.clone(), max, min);
-    if (tipus == szethuzas_tipus::gyokos)
-        szurkeKepSzethuzas = gyokosSzethuzas(kep.clone(), max, min);
-    if (tipus == szethuzas_tipus::negyzetes)
-        szurkeKepSzethuzas = negyzetesSzethuzas(kep.clone(), max, min);
+    imshow(name + enumToString(type) + " szethuzott kep", stretchedImg);
+    saveImage(stretchedImg, name + "_" + enumToString(type) + "_szethuzott");
 
-    imshow(nev + enumToString(tipus) + " szethuzott kep", szurkeKepSzethuzas);
-    kepMentes(szurkeKepSzethuzas, nev + "_" + enumToString(tipus) + "_szethuzott");
+    calcHist(&stretchedImg, 1, 0, Mat(), stretchedHist, 1, &histSize, &histRange, true, false);
+    normalize(stretchedHist, stretchedHist, 0, stretchedHistImg.rows, NORM_MINMAX, -1, Mat());
 
-    Mat szethuzottHisztogram;
-    calcHist(&szurkeKepSzethuzas, 1, 0, Mat(), szethuzottHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    for (int i = 1; i < histSize; i++)
+        line(stretchedHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(stretchedHist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    Mat szethuzottHisztogramKep(_hisztogramMagassag, _hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(szethuzottHisztogram, szethuzottHisztogram, 0, szethuzottHisztogramKep.rows, NORM_MINMAX, -1, Mat());
-
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(szethuzottHisztogramKep, cv::Point(szethuzasMertek * (i - 1), _hisztogramMagassag - cvRound(szethuzottHisztogram.at<float>(i - 1))),
-            Point(szethuzasMertek * (i), _hisztogramMagassag - cvRound(hisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
-
-    imshow(nev + enumToString(tipus) + " szethuzott hisztogram", szethuzottHisztogramKep);
-    kepMentes(szethuzottHisztogramKep, nev + "_" + enumToString(tipus) + "_szethuzott_hisztogram");
+    imshow(name + enumToString(type) + " szethuzott hisztogram", stretchedHistImg);
+    saveImage(stretchedHistImg, name + "_" + enumToString(type) + "_szethuzott_hisztogram");
 }
 
-void hisztogramKiegyenlites(Mat kep, string nev) {
-    int hisztogramMeret = 256;
-    float range[] = { 0, 256 };
-    const float* hisztogramRange = { range };
+void histEq(Mat src, string name) {
+    int histSize = RANGE_MAX;
+    float range[] = { RANGE_MIN, RANGE_MAX };
+    const float* histRange = { range };
+    int binW = cvRound((double)HIST_W / histSize);
+    Mat hist;
+    Mat histTable;
+    Mat histImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat fourShadeEqImg;
+    Mat fourShadeEqImgHist;
+    Mat fourShadeEqImgHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat sixteenShadeEqImg;
+    Mat sixteenShadeEqImgHist;
+    Mat sixteenShadeEqImgHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
 
-    Mat szurkeSkalasHisztogram;
-    calcHist(&kep, 1, 0, Mat(), szurkeSkalasHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    calcHist(&src, 1, 0, Mat(), hist, 1, &histSize, &histRange, true, false);
+    histTable = hist.clone();
+    normalize(hist, hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    Mat hisztogramTable = szurkeSkalasHisztogram.clone();
+    for (int i = 1; i < histSize; i++)
+        line(histImg, cv::Point(binW * (i - 1), HIST_H - cvRound(hist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    int hisztogramSzelesseg = 512;
-    int hisztogramMagassag = 400;
-    int bin_w = cvRound((double)hisztogramSzelesseg / hisztogramMeret);
+    imshow(name, src);
+    imshow(name + " hisztogram", histImg);
+    saveImage(histImg, name + "_hisztogram");
 
-    Mat szurkeSkalasHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
+    fourShadeEqImg = equalize(src.clone(), histTable, src.size().area(), 4);
+    calcHist(&fourShadeEqImg, 1, 0, Mat(), fourShadeEqImgHist, 1, &histSize, &histRange, true, false);
+    normalize(fourShadeEqImgHist, fourShadeEqImgHist, 0, fourShadeEqImgHistImg.rows, cv::NORM_MINMAX, -1, Mat());
 
-    normalize(szurkeSkalasHisztogram, szurkeSkalasHisztogram, 0, szurkeSkalasHisztogramKep.rows, NORM_MINMAX, -1, Mat());
+    for (int i = 1; i < histSize; i++)
+        line(fourShadeEqImgHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(fourShadeEqImgHist.at<float>(i - 1))), cv::Point(binW * (i), HIST_H - cvRound(fourShadeEqImgHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(szurkeSkalasHisztogramKep, cv::Point(bin_w * (i - 1), hisztogramMagassag - cvRound(szurkeSkalasHisztogram.at<float>(i - 1))),
-            Point(bin_w * (i), hisztogramMagassag - cvRound(szurkeSkalasHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
+    imshow(name + " kiegyenlitett 4 arnyalat", fourShadeEqImg);
+    saveImage(fourShadeEqImg, name + "_4_arnyalatos_kiegyenlitett");
+    imshow(name + " kiegyenlitett hisztogram, 4 arnyalat", fourShadeEqImgHistImg);
+    saveImage(fourShadeEqImgHistImg, name + "_4_arnyalatos_kiegyenlitett_hisztogram");
 
-    imshow(nev, kep);
-    imshow(nev + " hisztogram", szurkeSkalasHisztogramKep);
-    kepMentes(szurkeSkalasHisztogramKep, nev + "_hisztogram");
+    sixteenShadeEqImg = equalize(src.clone(), histTable, src.size().area(), 16);
+    calcHist(&sixteenShadeEqImg, 1, 0, Mat(), sixteenShadeEqImgHist, 1, &histSize, &histRange, true, false);
+    normalize(sixteenShadeEqImgHist, sixteenShadeEqImgHist, 0, sixteenShadeEqImgHistImg.rows, cv::NORM_MINMAX, -1, Mat());
 
-    Mat negyArnyalatosKiegyenlitettKep = kiegyenlites(kep.clone(), hisztogramTable, kep.size().area(), 4);
-    Mat negyArnyalatosKiegyenlitettKepHisztogram;
-    Mat negyArnyalatosKiegyenlitettKepHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
+    for (int i = 1; i < histSize; i++)
+        line(sixteenShadeEqImgHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(sixteenShadeEqImgHist.at<float>(i - 1))), cv::Point(binW * (i), HIST_H - cvRound(sixteenShadeEqImgHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    calcHist(&negyArnyalatosKiegyenlitettKep, 1, 0, Mat(), negyArnyalatosKiegyenlitettKepHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
-    normalize(negyArnyalatosKiegyenlitettKepHisztogram, negyArnyalatosKiegyenlitettKepHisztogram, 0, negyArnyalatosKiegyenlitettKepHisztogramKep.rows, cv::NORM_MINMAX, -1, Mat());
-
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(negyArnyalatosKiegyenlitettKepHisztogramKep, cv::Point(bin_w * (i - 1), hisztogramMagassag - cvRound(negyArnyalatosKiegyenlitettKepHisztogram.at<float>(i - 1))),
-            cv::Point(bin_w * (i), hisztogramMagassag - cvRound(negyArnyalatosKiegyenlitettKepHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
-
-    imshow(nev + " kiegyenlitett kep, 4 arnyalat", negyArnyalatosKiegyenlitettKep);
-    kepMentes(negyArnyalatosKiegyenlitettKep, nev + "_4_arnyalatos_kiegyenlitett");
-    imshow(nev + " kiegyenlitett hisztogram, 4 arnyalat", negyArnyalatosKiegyenlitettKepHisztogramKep);
-    kepMentes(negyArnyalatosKiegyenlitettKepHisztogramKep, nev + "_4_arnyalatos_kiegyenlitett_hisztogram");
-
-    Mat tizenhatArnyalatosKiegyenlitettKep = kiegyenlites(kep.clone(), hisztogramTable, kep.size().area(), 16);
-    Mat tizenhatArnyalatosKiegyenlitettKepHisztogram;
-    Mat tizenhatArnyalatosKiegyenlitettKepHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-
-    calcHist(&tizenhatArnyalatosKiegyenlitettKep, 1, 0, Mat(), tizenhatArnyalatosKiegyenlitettKepHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
-    normalize(tizenhatArnyalatosKiegyenlitettKepHisztogram, tizenhatArnyalatosKiegyenlitettKepHisztogram, 0, tizenhatArnyalatosKiegyenlitettKepHisztogramKep.rows, cv::NORM_MINMAX, -1, Mat());
-
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(tizenhatArnyalatosKiegyenlitettKepHisztogramKep, cv::Point(bin_w * (i - 1), hisztogramMagassag - cvRound(tizenhatArnyalatosKiegyenlitettKepHisztogram.at<float>(i - 1))),
-            cv::Point(bin_w * (i), hisztogramMagassag - cvRound(tizenhatArnyalatosKiegyenlitettKepHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
-
-    imshow(nev + " kiegyenlitett kep, 16 arnyalat", tizenhatArnyalatosKiegyenlitettKep);
-    kepMentes(tizenhatArnyalatosKiegyenlitettKep, nev + "_16_arnyalatos_kiegyenlitett");
-    imshow(nev + " kiegyenlitett hisztogram, 16 arnyalat", tizenhatArnyalatosKiegyenlitettKepHisztogramKep);
-    kepMentes(negyArnyalatosKiegyenlitettKepHisztogramKep, nev + "_16_arnyalatos_kiegyenlitett_hisztogram");
+    imshow(name + " kiegyenlitett 16 arnyalat", sixteenShadeEqImg);
+    saveImage(sixteenShadeEqImg, name + "_16_arnyalatos_kiegyenlitett");
+    imshow(name + " kiegyenlitett hisztogram, 16 arnyalat", sixteenShadeEqImgHistImg);
+    saveImage(sixteenShadeEqImgHistImg, name + "_16_arnyalatos_kiegyenlitett_hisztogram");
 }
 
-void konvulucio(Mat kep, string nev) {
-    int hisztogramMeret = 256;
-    float range[] = { 0, 256 };
-    const float* hisztogramRange = { range };
+void convolution(Mat src, string name) {
+    int histSize = RANGE_MAX;
+    float range[] = { RANGE_MIN, RANGE_MAX };
+    const float* histRange = { range };
+    int binW = cvRound((double)HIST_W / histSize);
+    Mat hist;
+    Mat histLUT;
+    Mat histImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat sobelRowImg = sobel(src.clone(), true); //Sobel vizszintes
+    Mat sobelRowHist;
+    Mat sobelRowHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat sobelColImg = sobel(src.clone(), false); //Sobel fuggoleges
+    Mat sobelColHist;
+    Mat sobelColHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat sobelAddImg;
+    Mat sobelAddHist;
+    Mat sobelAddHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
 
-    Mat hisztogram;
-    calcHist(&kep, 1, 0, Mat(), hisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    calcHist(&src, 1, 0, Mat(), hist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(hist, hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
+    histLUT = hist.clone();
 
-    int hisztogramSzelesseg = 512;
-    int hisztogramMagassag = 400;
-    int oszlopSzelesseg = cvRound((double)hisztogramSzelesseg / hisztogramMeret);
+    for (int i = 1; i < histSize; i++)
+        line(histImg, cv::Point(binW * (i - 1), HIST_H - cvRound(hist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    Mat hisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
+    imshow(name, src);
+    imshow(name + " hisztogram", histImg);
+    saveImage(histImg, name + "_hisztogram");
 
-    normalize(hisztogram, hisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
+    calcHist(&sobelRowImg, 1, 0, Mat(), sobelRowHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(sobelRowHist, sobelRowHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(hisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(hisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(hisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
+    for (int i = 1; i < histSize; i++)
+        line(sobelRowHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(sobelRowHist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(sobelRowHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    Mat alap = kep.clone();
-    imshow(nev , kep);
-    imshow(nev + " konvolucio Elotti Histogram", hisztogramKep);
-    kepMentes(hisztogramKep, nev + "_hisztogram");
+    imshow(name + " sobel vizszintes", sobelRowImg);
+    saveImage(sobelRowImg, name + "_sobel_vizszintes");
+    imshow(name + " sobel vizszintes hisztogram", sobelRowHistImg);
+    saveImage(sobelRowHistImg, name + "_sobel_vizszintes_hisztogram");
 
-    Size meret = alap.size();
-    int magassag = meret.height;
-    int szelesseg = meret.width;
-    Mat utanaKep = alap.clone();
+    calcHist(&sobelColImg, 1, 0, Mat(), sobelColHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(sobelColHist, sobelColHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    Mat kernel = (Mat_<double>(3, 3) << 1.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0
-        , 0, 0, 0
-        , -1.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0);
+    for (int i = 1; i < histSize; i++)
+        line(sobelColHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(sobelColHist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(sobelColHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    int size = 5;
-    double gauss[5][5];
-    int sideStep = (size - 1) / 2;
-    int kernelSugar = ((kernel.size().height - 1) / 2);
+    imshow(name + " sobel fuggoleges", sobelColImg);
+    saveImage(sobelColImg, name + "_sobel_fuggoleges");
+    imshow(name + " sobel fuggoleges hisztogram", sobelColHistImg);
+    saveImage(sobelColHistImg, name + "_sobel_fuggoleges_hisztogram");
 
-    for (int z = 0; z < 1; z++)
-    {
-        for (int i = 0; i < magassag - (2 * kernelSugar); i++) {
-            for (int j = 0; j < szelesseg - (2 * kernelSugar); j++) {
-                double sum = 0;
-                for (int k = 0; k < 2 * kernelSugar + 1; k++) {
-                    for (int l = 0; l < 2 * kernelSugar + 1; l++) {
-                        if ((i + k < magassag - 1 && i + k >= 0) || (j + l < szelesseg - 1 && j + l >= 0)) {
-                            sum += (double)alap.at<unsigned char>(i + k, j + l) * kernel.at<double>(k, l);
-                        }
-                    }
-                }
-                utanaKep.at<unsigned char>(i + kernelSugar, j + kernelSugar) = (unsigned char)abs(sum);
-            }
+    //Sobel osszeg
+    sobelAddImg = sobelRowImg.clone();
+    for (int r = 0; r < src.rows; r++) {
+        for (int c = 0; c < src.cols; c++) {
+            sobelAddImg.at<unsigned char>(r, c) += sobelColImg.at<unsigned char>(r, c);
         }
-        alap = utanaKep.clone();
-    }
-    Mat szethuzottHisztogram;
-    calcHist(&kep, 1, 0, Mat(), szethuzottHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
-
-    Mat szethuztottHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(szethuzottHisztogram, szethuzottHisztogram, 0, szethuztottHisztogramKep.rows, NORM_MINMAX, -1, Mat());
-
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(szethuztottHisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(szethuzottHisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(hisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
     }
 
-    imshow(nev + " konvulucio Utan", utanaKep);
-    kepMentes(utanaKep, nev + "_konvolucio");
-    imshow(nev + " konvulucio Utan Hisztogram", szethuztottHisztogramKep);
-    kepMentes(szethuztottHisztogramKep, nev + "_konvolucio_hisztogram");
+    calcHist(&sobelAddImg, 1, 0, Mat(), sobelAddHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(sobelAddHist, sobelAddHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histSize; i++)
+        line(sobelAddHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(sobelAddHist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(sobelAddHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
+
+    imshow(name + " sobel osszetett", sobelAddImg);
+    saveImage(sobelAddImg, name + "_sobel_osszetett");
+    imshow(name + " sobel osszetett hisztogram", sobelAddHistImg);
+    saveImage(sobelAddHistImg, name + "_sobel_osszetett_hisztogram");
+
+    //Laplace 4 szomszéd
+    Mat laplace4Img = laplace4(src.clone());
+    Mat laplace4Hist;
+    Mat laplace4HistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    calcHist(&laplace4Img, 1, 0, Mat(), laplace4Hist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(laplace4Hist, laplace4Hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histSize; i++)
+        line(laplace4HistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(laplace4Hist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(laplace4Hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
+
+    imshow(name + " laplace4", laplace4Img);
+    saveImage(laplace4Img, name + "_laplace4");
+    imshow(name + " laplace4 hisztogram", laplace4HistImg);
+    saveImage(laplace4HistImg, name + "_laplace4_hisztogram");
+
+    //Laplace 8 szomszéd
+
+    Mat laplace8Img = laplace8(src.clone());
+    Mat laplace8Hist;
+    Mat laplace8HistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    calcHist(&laplace8Img, 1, 0, Mat(), laplace8Hist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(laplace8Hist, laplace8Hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
+
+    for (int i = 1; i < histSize; i++)
+        line(laplace8HistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(laplace8Hist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(laplace8Hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
+
+    imshow(name + " laplace8", laplace8Img);
+    saveImage(laplace8Img, name + "_laplace8");
+    imshow(name + " laplace8 hisztogram", laplace8HistImg);
+    saveImage(laplace8HistImg, name + "_laplace8_hisztogram");
+
+    //Laplace 4 szomszéd + Hist Eq
+
+    Mat laplace4EqImg = laplace4(equalize(src.clone(), histLUT, src.size().area(), 16));
+    Mat laplace4EqHist;
+    Mat laplace4EqHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    calcHist(&laplace4EqImg, 1, 0, Mat(), laplace4EqHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(laplace4EqHist, laplace4EqHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
+    for (int i = 1; i < histSize; i++)
+        line(laplace4EqHistImg, cv::Point(binW * (i - 1), HIST_H - cvRound(laplace4EqHist.at<float>(i - 1))), Point(binW * (i), HIST_H - cvRound(laplace4EqHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
+
+    imshow("Laplace4EQ", laplace4EqImg);
+    saveImage(laplace4EqImg, name + "_laplace4_eq");
+    imshow("Laplace4EQ hisztogram", laplace4EqHistImg);
+    saveImage(laplace4EqHistImg, name + "_laplace4_eq_hisztogram");
 }
 
-void wallisSzuro(Mat kep, string nev) {
-    int hisztogramMeret = 256;
-    float range[] = { 0, 256 };
-    const float* hisztogramRange = { range };
+void wallisFilter(Mat src, string name, int sd, float r, int md, float amax) {
+    int histSize = RANGE_MAX;
+    float range[] = { RANGE_MIN, RANGE_MAX };
+    const float* histRange = { range };
+    int colW = cvRound((double)HIST_W / histSize);
+    Mat hist;
+    Mat histImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat avgImg = avgOrScatter(src, 8, cv::Mat());
+    Mat scatterImg = avgOrScatter(src, 8, avgImg);
+    Mat wallisImg = wallis(src, avgImg, scatterImg, sd, r, md, amax);
+    Mat wallisHist;
+    Mat wallisHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
 
-    Mat hisztogram;
-    calcHist(&kep, 1, 0, Mat(), hisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    calcHist(&src, 1, 0, Mat(), hist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(hist, hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    int hisztogramSzelesseg = 512;
-    int hisztogramMagassag = 400;
-    int oszlopSzelesseg = cvRound((double)hisztogramSzelesseg / hisztogramMeret);
+    for (int i = 1; i < histSize; i++)
+        line(histImg, cv::Point(colW * (i - 1), HIST_H - cvRound(hist.at<float>(i - 1))), Point(colW * (i), HIST_H - cvRound(hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    Mat hisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
+    imshow(name, src);
+    imshow(name + " hisztogram", histImg);
+    saveImage(histImg, name + "_hisztogram");
 
-    normalize(hisztogram, hisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
+    calcHist(&wallisImg, 1, 0, Mat(), wallisHist, 1, &histSize, &histRange, true, false);
+    normalize(wallisHist, wallisHist, 0, wallisHistImg.rows, NORM_MINMAX, -1, Mat());
 
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(hisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(hisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(hisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
+    for (int i = 1; i < histSize; i++)
+        line(wallisHistImg, cv::Point(colW * (i - 1), HIST_H - cvRound(wallisHist.at<float>(i - 1))), Point(colW * (i), HIST_H - cvRound(wallisHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    imshow(nev , kep);
-    imshow(nev + " hisztogram", hisztogramKep);
-    kepMentes(hisztogramKep, nev + "_hisztogram");
-
-    Mat atlagKep = kepAtlagVagySzoras(kep, 8, cv::Mat());
-    Mat szorasKep = kepAtlagVagySzoras(kep, 8, atlagKep);
-    Mat wallisKep = wallis(kep, atlagKep, szorasKep, 100, 2.5f, 50, 0.8);
-
-    Mat wallisHisztogram;
-    calcHist(&wallisKep, 1, 0, Mat(), wallisHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
-    Mat wallisHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(wallisHisztogram, wallisHisztogram, 0, wallisHisztogramKep.rows, NORM_MINMAX, -1, Mat());
-
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(wallisHisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(wallisHisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(wallisHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
-
-    imshow(nev + " wallis kep", wallisKep);
-    kepMentes(wallisKep, nev + "_wallis");
-    imshow(nev + " wallis hisztogram", wallisHisztogramKep);
-    kepMentes(wallisHisztogramKep, nev + "_wallis_hisztogram");
+    imshow(name + " wallis", wallisImg);
+    saveImage(wallisImg, name + "_wallis" + "_md" + to_string(md) + "_sd" + to_string(sd));
+    imshow(name + " wallis hisztogram", wallisHistImg);
+    saveImage(wallisHistImg, name + "_wallis" + "_md" + to_string(md) + "_sd" + to_string(sd) + "_hisztogram");
 }
 
-void nemlinearis(Mat kep, string nev) {
-    int hisztogramMeret = 256;
-    float range[] = { 0, 256 };
-    const float* hisztogramRange = { range };
+void noiseFilters(Mat src, string name) {
+    int histSize = RANGE_MAX;
+    float range[] = { RANGE_MIN, RANGE_MAX };
+    const float* histRange = { range };
+    const int len = (2 * RADIUS + 1) * (2 * RADIUS + 1);
+    const int lenFast = 2 * RADIUS + 1;
+    int colW = cvRound((double)HIST_W / histSize);
+    Mat hist;
+    Mat histImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat outlierImg = outlier(src, RADIUS, 35);
+    Mat outlierHist;
+    Mat outlierHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat median = Mat::zeros(src.rows, src.cols, src.type());
+    Mat medianHist;
+    Mat medianHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
+    Mat fastMedian = Mat::zeros(src.rows, src.cols, src.type());
+    Mat fastMedianHist;
+    Mat fastMedianHistImg(HIST_H, HIST_W, CV_8UC3, cv::Scalar(0, 0, 0));
 
-    Mat hisztogram;
-    calcHist(&kep, 1, 0, Mat(), hisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    calcHist(&src, 1, 0, Mat(), hist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(hist, hist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    int hisztogramSzelesseg = 512;
-    int hisztogramMagassag = 400;
-    int oszlopSzelesseg = cvRound((double)hisztogramSzelesseg / hisztogramMeret);
+    for (int i = 1; i < histSize; i++)
+        line(histImg, cv::Point(colW * (i - 1), HIST_H - cvRound(hist.at<float>(i - 1))), Point(colW * (i), HIST_H - cvRound(hist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    Mat hisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
+    imshow(name, src);
+    imshow(name + " hisztogram", histImg);
+    saveImage(histImg, name + "_hisztogram");
 
-    normalize(hisztogram, hisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
+    calcHist(&outlierImg, 1, 0, Mat(), outlierHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(outlierHist, outlierHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(hisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(hisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(hisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
+    for (int i = 1; i < histSize; i++)
+        line(outlierHistImg, cv::Point(colW * (i - 1), HIST_H - cvRound(outlierHist.at<float>(i - 1))), Point(colW * (i), HIST_H - cvRound(outlierHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    imshow(nev, kep);
-    imshow(nev +" hisztogram", hisztogramKep);
-    kepMentes(hisztogramKep, nev + "_hisztogram");
+    imshow(name + " outlier szurt", outlierImg);
+    saveImage(outlierImg, name + "_outlier");
+    imshow(name + " outlier szurt hisztogram", outlierHistImg);
+    saveImage(outlierHistImg, name + "_outlier_hisztogram");
 
-    Mat outlierKep = outlier(kep, 3, 35);
-    Mat outlierHisztogram;
-    calcHist(&outlierKep, 1, 0, Mat(), outlierHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
-
-    Mat outlierHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(outlierHisztogram, outlierHisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(outlierHisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(outlierHisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(outlierHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
-
-    imshow(nev + " outlier szurt kep", outlierKep);
-    kepMentes(outlierKep, nev + "_outlier");
-    imshow(nev + " outlier szurt hisztogram", outlierHisztogramKep);
-    kepMentes(outlierHisztogramKep, nev + "_outlier_hisztogram");
-
-    Mat median = Mat::zeros(kep.rows, kep.cols, kep.type());
-    const int hossz = (2 * 3 + 1) * (2 * 3 + 1);
-
-    for (int i = 0; i < kep.rows; i++) {
-        for (int j = 0; j < kep.cols; j++) {
-
-            unsigned char pixels[hossz];
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            unsigned char pixels[len];
             int index = 0;
+
             for (int k = i - 3; k <= i + 3; k++) {
                 for (int l = j - 3; l <= j + 3; l++) {
-
                     int k2 = k, l2 = l;
-                    if (k < 0) {
+
+                    if (k < 0)
                         k2 = 0;
-                    }
-                    if (k >= kep.rows) {
-                        k2 = kep.rows - 1;
-                    }
-                    if (l < 0) {
+                    if (k >= src.rows)
+                        k2 = src.rows - 1;
+                    if (l < 0)
                         l2 = 0;
-                    }
-                    if (l >= kep.cols) {
-                        l2 = kep.cols - 1;
-                    }
-                    pixels[index] = kep.at<unsigned char>(k2, l2);
+                    if (l >= src.cols)
+                        l2 = src.cols - 1;
+                    pixels[index] = src.at<unsigned char>(k2, l2);
                     index++;
                 }
             }
-            qsort(pixels, hossz, sizeof(unsigned char), osszeHasonlit);
-            median.at<unsigned char>(i, j) = pixels[(hossz + 1) / 2];
+
+            qsort(pixels, len, sizeof(unsigned char), compare);
+            median.at<unsigned char>(i, j) = pixels[(len + 1) / 2];
         }
     }
 
-    Mat medianHisztogram;
-    calcHist(&median, 1, 0, Mat(), medianHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    calcHist(&median, 1, 0, Mat(), medianHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(medianHist, medianHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    Mat medianHisztorgamKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(medianHisztogram, medianHisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(medianHisztorgamKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(medianHisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(medianHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
+    for (int i = 1; i < histSize; i++)
+        line(medianHistImg, cv::Point(colW * (i - 1), HIST_H - cvRound(medianHist.at<float>(i - 1))), Point(colW * (i), HIST_H - cvRound(medianHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    imshow(nev + " median szurt kep", median);
-    kepMentes(median, nev + "_median");
-    imshow(nev + " median szurt hisztogram", medianHisztorgamKep);
-    kepMentes(medianHisztorgamKep, nev + "_median_hisztogram");
+    imshow(name + " median", median);
+    saveImage(median, name + "_median");
+    imshow(name + " median hisztogram", medianHistImg);
+    saveImage(medianHistImg, name + "_median_hisztogram");
 
-    const int r = 3;
-    Mat gyors_median = Mat::zeros(kep.rows, kep.cols, kep.type());
-    const int hossz2 = 2 * r + 1;
-
-    for (int i = 0; i < kep.rows; i++) {
-        for (int j = 0; j < kep.cols; j++) {
-
-            unsigned char pixels[hossz2];
+    for (int i = 0; i < src.rows; i++) {
+        for (int j = 0; j < src.cols; j++) {
+            unsigned char pixels[lenFast];
             int index = 0;
-            for (int k = i - r; k <= i + r; k++) {
 
-                unsigned char pixels2[hossz2];
+            for (int k = i - RADIUS; k <= i + RADIUS; k++) {
+                unsigned char pixels2[lenFast];
                 int index2 = 0;
-                for (int l = j - r; l <= j + r; l++) {
 
+                for (int l = j - RADIUS; l <= j + RADIUS; l++) {
                     int k2 = k, l2 = l;
-                    if (k < 0) {
+
+                    if (k < 0)
                         k2 = 0;
-                    }
-                    if (k >= kep.rows) {
-                        k2 = kep.rows - 1;
-                    }
-                    if (l < 0) {
+                    if (k >= src.rows)
+                        k2 = src.rows - 1;
+                    if (l < 0)
                         l2 = 0;
-                    }
-                    if (l >= kep.cols) {
-                        l2 = kep.cols - 1;
-                    }
-                    pixels2[index2] = kep.at<unsigned char>(k2, l2);
+                    if (l >= src.cols)
+                        l2 = src.cols - 1;
+
+                    pixels2[index2] = src.at<unsigned char>(k2, l2);
                     index2++;
                 }
-                qsort(pixels2, hossz2, sizeof(unsigned char), osszeHasonlit);
-                pixels[index] = pixels2[(hossz2 + 1) / 2];
+
+                qsort(pixels2, lenFast, sizeof(unsigned char), compare);
+                pixels[index] = pixels2[(lenFast + 1) / 2];
                 index++;
             }
-            qsort(pixels, hossz2, sizeof(unsigned char), osszeHasonlit);
-            gyors_median.at<unsigned char>(i, j) = pixels[(hossz2 + 1) / 2];
+
+            qsort(pixels, lenFast, sizeof(unsigned char), compare);
+            fastMedian.at<unsigned char>(i, j) = pixels[(lenFast + 1) / 2];
         }
     }
 
-    Mat gyorsMedianHisztogram;
-    calcHist(&gyors_median, 1, 0, Mat(), gyorsMedianHisztogram, 1, &hisztogramMeret, &hisztogramRange, true, false);
+    calcHist(&fastMedian, 1, 0, Mat(), fastMedianHist, 1, &histSize, &histRange, UNIFORM, ACCUMULATE);
+    normalize(fastMedianHist, fastMedianHist, 0, histImg.rows, NORM_MINMAX, -1, Mat());
 
-    Mat gyorsMedianHisztogramKep(hisztogramMagassag, hisztogramSzelesseg, CV_8UC3, cv::Scalar(0, 0, 0));
-    normalize(gyorsMedianHisztogram, gyorsMedianHisztogram, 0, hisztogramKep.rows, NORM_MINMAX, -1, Mat());
-    for (int i = 1; i < hisztogramMeret; i++)
-    {
-        line(gyorsMedianHisztogramKep, cv::Point(oszlopSzelesseg * (i - 1), hisztogramMagassag - cvRound(gyorsMedianHisztogram.at<float>(i - 1))),
-            Point(oszlopSzelesseg * (i), hisztogramMagassag - cvRound(gyorsMedianHisztogram.at<float>(i))),
-            cv::Scalar(255, 255, 255), 2, 8, 0);
-    }
+    for (int i = 1; i < histSize; i++)
+        line(fastMedianHistImg, cv::Point(colW * (i - 1), HIST_H - cvRound(fastMedianHist.at<float>(i - 1))), Point(colW * (i), HIST_H - cvRound(fastMedianHist.at<float>(i))), cv::Scalar(255, 255, 255), 2, 8, 0);
 
-    imshow(nev + " gyors Median szurt kep", gyors_median);
-    kepMentes(gyors_median, nev + "_gyors_median");
-    imshow(nev + " gyors Median szurt hisztogram", gyorsMedianHisztogramKep);
-    kepMentes(gyorsMedianHisztogramKep, nev + "_gyors_median_hisztogram");
+    imshow(name + " gyors Median szurt", fastMedian);
+    saveImage(fastMedian, name + "_gyors_median");
+    imshow(name + " gyors Median szurt hisztogram", fastMedianHistImg);
+    saveImage(fastMedianHistImg, name + "_gyors_median_hisztogram");
 }

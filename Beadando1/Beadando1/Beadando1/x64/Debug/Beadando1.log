@@ -1,32 +1,31 @@
 ﻿  main.cpp
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(147,47): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(171,47): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=unsigned char
           ]
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(156,47): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(180,47): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
           with
           [
               _Tp=unsigned char
           ]
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(174,35): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(193,35): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(200,77): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(198,47): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(217,35): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(224,66): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=unsigned char
           ]
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(220,67): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(236,31): warning C4244: 'initializing': conversion from 'double' to 'unsigned char', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(268,57): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=unsigned char
           ]
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(244,68): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(302,46): warning C4244: '=': conversion from 'float' to '_Tp', possible loss of data
           with
           [
               _Tp=unsigned char
           ]
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(307,5): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(448,12): warning C4101: 'gauss': unreferenced local variable
-F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(517,72): warning C4305: 'argument': truncation from 'double' to 'float'
+F:\Github\ImageProcessing\Beadando1\Beadando1\Beadando1\main.cpp(387,5): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
   Beadando1.vcxproj -> F:\Github\ImageProcessing\Beadando1\Beadando1\x64\Debug\Beadando1.exe
