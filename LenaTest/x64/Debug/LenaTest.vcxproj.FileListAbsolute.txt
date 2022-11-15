@@ -1,2 +1,0 @@
-C:\Users\dkert\Desktop\LenaTest\x64\Debug\LenaTest.exe
-F:\Github\ImageProcessing\LenaTest\x64\Debug\LenaTest.exe
