@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+
+#visual studio
+.vs/
+.git/
+Beadando1/Beadando1/.vs/
+Beadando1/Beadando1/x64/
+Beadando1/Beadando1/Beadando1/x64/
+LenaTest/.vs/
+LenaTest/x64/
