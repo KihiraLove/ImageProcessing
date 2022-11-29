@@ -66,7 +66,7 @@ int main() {
 
     //2.1
     histStretch(peppers_sotet, stretch_type::linear, "peppers_sotet/peppers_sotet");
-    histStretch(boat_sotet, stretch_type::linear, "boat_sotet/boat_sotet");
+    /*histStretch(boat_sotet, stretch_type::linear, "boat_sotet/boat_sotet");
 
     histStretch(peppers_sotet, stretch_type::quadratic, "peppers_sotet/peppers_sotet");
     histStretch(peppers_vilagos, stretch_type::quadratic, "peppers_vilagos/peppers_vilagos");
@@ -101,7 +101,7 @@ int main() {
     //2.5
     noiseFilters(montage_zajos, "montage_zajos/montage_zajos");
     noiseFilters(barbara_gauss, "0.025/0.025");
-    noiseFilters(barbara_saltpepper, "0.1/0.1");
+    noiseFilters(barbara_saltpepper, "0.1/0.1");*/
 
     waitKey();
 
