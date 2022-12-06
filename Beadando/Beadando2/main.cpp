@@ -390,6 +390,8 @@ void bugAlgo(Mat src, string name) {
     cout << bugFollowCode << endl;
     ofstream bugBacktrackFile("images/output/bug/bugBacktrackCode.txt");
     bugBacktrackFile << bugBacktrckCode;
+    bugFollowFile.close();
+    bugBacktrackFile.close();
 }
 
 //8. feladat
