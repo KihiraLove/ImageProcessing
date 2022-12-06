@@ -1,2 +1,12 @@
 ﻿  main.cpp
+F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(423,71): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
+          with
+          [
+              _Tp=uchar
+          ]
+F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(441,47): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
+          with
+          [
+              _Tp=uchar
+          ]
   Beadando2.vcxproj -> F:\Github\ImageProcessing\Beadando\Beadando2\x64\Debug\Beadando2.exe

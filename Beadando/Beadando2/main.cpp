@@ -2,6 +2,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <sstream>
 #include <algorithm>
@@ -34,18 +35,18 @@ template <int N> Mat dilation(Mat src, int kernel[N][N]);
 template <int N> Mat erosion(Mat src, int kernel[N][N]);
 
 void bugAlgo(Mat src, string name);
-direction turnBack(direction dir);
-direction turnRight(direction dir);
-direction turnLeft(direction dir);
+direction turnBack(direction dir, string* code);
+direction turnRight(direction dir, string* code);
+direction turnLeft(direction dir, string* code);
 std::pair<int, int> findFirstPixel(Mat src);
 bool isInObject(Bug bug, Mat src);
-void moveBug(Bug& bug, Mat src);
-Mat bugFollow(Mat src);
-Mat backtrackBugFollow(Mat src);
+void moveBug(Bug& bug, Mat src, string* code);
+Mat bugFollow(Mat src, string* code);
+Mat backtrackBugFollow(Mat src, string* code);
 
 void laws(Mat inputSrc, Mat textureSrc, string name);
 Mat performConvolution(Mat src, Mat kernel);
-Mat calculateEnergy(Mat src, int w = 15);
+Mat calculateEnergy(Mat src);
 
 const bool UNIFORM = true;
 const bool ACCUMULATE = false;
@@ -215,62 +216,77 @@ void morphology(Mat src, string name) {
 }
 
 //7. feladat
-direction turnBack(direction d) {
+direction turnBack(direction d, string* code) {
     switch (d) {
         case N:
             return S;
+            *code = *code + "S";
             break;
         case W:
             return E;
+            *code = *code + "E";
             break;
         case S:
             return N;
+            *code = *code + "N";
             break;
         case E:
             return W;
+            *code = *code + "W";
             break;
         default:
             return N;
+            *code = *code + "N";
             break;
     }
 }
 
-direction turnRight(direction d) {
+direction turnRight(direction d, string* code) {
     switch (d) {
         case N:
             return E;
+            *code = *code + "E";
             break;
         case E:
             return S;
+            *code = *code + "S";
             break;
         case S:
             return W;
+            *code = *code + "W";
             break;
         case W:
             return N;
+            *code = *code + "N";
             break;
         default:
             return N;
+            *code = *code + "N";
             break;
     }
 }
 
-direction turnLeft(direction d) {
+direction turnLeft(direction d, string* code) {
     switch (d) {
         case N:
             return W;
+            *code = *code + "W";
             break;
         case W:
             return S;
+            *code = *code + "S";
             break;
         case S:
             return E;
+            *code = *code + "E";
             break;
         case E:
             return N;
+            *code = *code + "N";
             break;
         default:
             return N;
+            *code = *code + "N";
             break;
     }
 }
@@ -291,7 +307,7 @@ bool isInObject(Bug bug, Mat src) {
     return src.at<unsigned char>(bug.pointI, bug.pointJ) != 0;
 }
 
-void moveBug(Bug& bug, Mat src) {
+void moveBug(Bug& bug, Mat src, string* code) {
     int height = src.rows;
     int width = src.cols;
 
@@ -300,32 +316,32 @@ void moveBug(Bug& bug, Mat src) {
             if (0 < bug.pointJ)
                 bug.pointJ--;
             else
-                bug.dir = turnLeft(bug.dir);
+                bug.dir = turnLeft(bug.dir, code);
             break;
         case direction::E:
             if (width > bug.pointJ)
                 bug.pointJ++;
             else
-                bug.dir = turnRight(bug.dir);
+                bug.dir = turnRight(bug.dir, code);
             break;
         case direction::N:
             if (0 < bug.pointI)
                 bug.pointI--;
             else
-                bug.dir = turnRight(bug.dir);
+                bug.dir = turnRight(bug.dir, code);
             break;
         case direction::S:
             if (height > bug.pointI)
                 bug.pointI++;
             else
-                bug.dir = turnRight(bug.dir);
+                bug.dir = turnRight(bug.dir, code);
             break;
         default:
             break;
     }
 }
 
-Mat bugFollow(Mat src){
+Mat bugFollow(Mat src, string* code) {
     Mat trackImg(src.rows, src.cols, CV_8UC1, Scalar(0, 0, 0));
 
     std::pair<int, int> firstLocation = findFirstPixel(src);
@@ -340,17 +356,17 @@ Mat bugFollow(Mat src){
     do {
         int pixel = src.at<uchar>(bug.pointI, bug.pointJ);
         if (pixel == 255) {
-            bug.dir = turnLeft(bug.dir);
+            bug.dir = turnLeft(bug.dir, code);
             trackImg.at<uchar>(bug.pointI, bug.pointJ) = 255;
         }
         else
-            bug.dir = turnRight(bug.dir);
-        moveBug(bug, src);
+            bug.dir = turnRight(bug.dir, code);
+        moveBug(bug, src, code);
     } while (!(bug.pointI == firstPointI && bug.pointJ == firstPointJ && bug.dir == direction::N));
     return trackImg;
 }
 
-Mat backtrackBugFollow(Mat src) {
+Mat backtrackBugFollow(Mat src, string* code) {
     Mat trackImg(src.rows, src.cols, CV_8UC1, Scalar(0, 0, 0));
 
     std::pair<int, int> firstLocation = findFirstPixel(src);
@@ -365,26 +381,33 @@ Mat backtrackBugFollow(Mat src) {
     do {
         int pixel = src.at<uchar>(bug.pointI, bug.pointJ);
         if (pixel == 255) {
-            bug.dir = turnBack(bug.dir);
+            bug.dir = turnBack(bug.dir, code);
             trackImg.at<uchar>(bug.pointI, bug.pointJ) = 255;
         }
         else
-            bug.dir = turnRight(bug.dir);
-        moveBug(bug, src);
+            bug.dir = turnRight(bug.dir, code);
+        moveBug(bug, src, code);
     } while (!(bug.pointI == firstPointI && bug.pointJ == firstPointJ && bug.dir == direction::N));
     return trackImg;
 }
 
 void bugAlgo(Mat src, string name) {
-    Mat bugFollowImage = bugFollow(src);
-    Mat bugBacktrackImage = backtrackBugFollow(src);
+    string bugFollowCode = "";
+    string bugBacktrckCode = "";
+    Mat bugFollowImage = bugFollow(src, &bugFollowCode);
+    Mat bugBacktrackImage = backtrackBugFollow(src, &bugBacktrckCode);
 
     saveAndShowImage(bugFollowImage, "bug/" + name + "_bug_follow");
     saveAndShowImage(bugBacktrackImage, "bug/" + name + "_bug_backtrack");
+
+    ofstream bugFollowFile("images/output/bug/bugFollowCode.txt");
+    bugFollowFile << bugFollowCode;
+    cout << bugFollowCode << endl;
+    ofstream bugBacktrackFile("images/output/bug/bugBacktrackCode.txt");
+    bugBacktrackFile << bugBacktrckCode;
 }
 
 //8. feladat
-
 Mat performConvolution(Mat src, Mat kernel) {
     Mat convImg(src.rows, src.cols, CV_8UC1, Scalar(0, 0, 0));
     int kernel_r = 1;
@@ -402,7 +425,8 @@ Mat performConvolution(Mat src, Mat kernel) {
     return convImg;
 }
 
-Mat calculateEnergy(Mat src, int w = 15) {
+Mat calculateEnergy(Mat src) {
+    int w = 15;
     Mat energImg(src.rows, src.cols, CV_8UC1, Scalar(0, 0, 0));
     double weight = 1 / pow(2 * w + 1, 2);
     for (int i = w; i < src.rows - w; i++) {
@@ -504,7 +528,4 @@ void laws(Mat inputSrc, Mat textureSrc, string name) {
     Mat inputEnergy8 = calculateEnergy(inputConv8);
     Mat inputEnergy9 = calculateEnergy(inputConv9);
 
-    imshow("Tanito", src);
-    imshow("Input", srcInput);
-    waitKey();
 }
