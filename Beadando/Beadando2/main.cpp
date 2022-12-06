@@ -219,75 +219,60 @@ void morphology(Mat src, string name) {
 direction turnBack(direction d, string* code) {
     switch (d) {
         case N:
-            return S;
             *code = *code + "S";
-            break;
+            return S;
         case W:
-            return E;
             *code = *code + "E";
-            break;
+            return E;
         case S:
-            return N;
             *code = *code + "N";
-            break;
+            return N;
         case E:
-            return W;
             *code = *code + "W";
-            break;
+            return W;
         default:
-            return N;
             *code = *code + "N";
-            break;
+            return N;
     }
 }
 
 direction turnRight(direction d, string* code) {
     switch (d) {
         case N:
-            return E;
             *code = *code + "E";
-            break;
+            return E;
         case E:
-            return S;
             *code = *code + "S";
-            break;
+            return S;
         case S:
-            return W;
             *code = *code + "W";
-            break;
+            return W;
         case W:
-            return N;
             *code = *code + "N";
-            break;
+            return N;
         default:
-            return N;
             *code = *code + "N";
-            break;
+            return N;
     }
 }
 
 direction turnLeft(direction d, string* code) {
     switch (d) {
         case N:
-            return W;
             *code = *code + "W";
-            break;
+            return W;
         case W:
-            return S;
             *code = *code + "S";
-            break;
+            return S;
         case S:
-            return E;
             *code = *code + "E";
-            break;
+            return E;
         case E:
-            return N;
             *code = *code + "N";
-            break;
+            return N;
         default:
-            return N;
             *code = *code + "N";
-            break;
+            return N;
     }
 }
 
