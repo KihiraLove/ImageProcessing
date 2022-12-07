@@ -1,2 +1,0 @@
-D:\Suli\7.félév\Képfeldolgozás\AJA3JA\6\morff\x64\Debug\morff.exe
-D:\Suli\7.félév\Képfeldolgozás\AJA3JA\6\morff\x64\Debug\morff.pdb

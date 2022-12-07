@@ -1,12 +1,10 @@
 ﻿  main.cpp
-F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(423,71): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
+F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(553,31): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(555,29): warning C4244: 'argument': conversion from 'int' to '_Ty', possible loss of data
           with
           [
-              _Tp=uchar
+              _Ty=float
           ]
-F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(441,47): warning C4244: '=': conversion from 'double' to '_Tp', possible loss of data
-          with
-          [
-              _Tp=uchar
-          ]
+F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(558,58): warning C4244: '=': conversion from '__int64' to 'int', possible loss of data
+F:\Github\ImageProcessing\Beadando\Beadando2\main.cpp(545,11): warning C4101: 'difference': unreferenced local variable
   Beadando2.vcxproj -> F:\Github\ImageProcessing\Beadando\Beadando2\x64\Debug\Beadando2.exe

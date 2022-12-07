@@ -34,7 +34,7 @@ template <int N> Mat open(Mat src, int kernel[N][N]);
 template <int N> Mat dilation(Mat src, int kernel[N][N]);
 template <int N> Mat erosion(Mat src, int kernel[N][N]);
 
-void bugAlgo(Mat src, string name);
+void bugFollowAlgorithms(Mat src, string name);
 direction turnBack(direction dir, string* code);
 direction turnRight(direction dir, string* code);
 direction turnLeft(direction dir, string* code);
@@ -44,9 +44,11 @@ void moveBug(Bug& bug, Mat src, string* code);
 Mat bugFollow(Mat src, string* code);
 Mat backtrackBugFollow(Mat src, string* code);
 
-void laws(Mat inputSrc, Mat textureSrc, string name);
+void laws(Mat src, Mat texture, string name);
+float sampleTexture(Mat src, Mat kernel, int centerY, int centerX);
+vector<float> calculateEnergy(Mat texture, int centerY, int centerX);
 Mat performConvolution(Mat src, Mat kernel);
-Mat calculateEnergy(Mat src);
+Mat getEnergy(Mat src, Mat kernel);
 
 const bool UNIFORM = true;
 const bool ACCUMULATE = false;
@@ -71,8 +73,11 @@ int main() {
     morphology(pcb_hibas_8bpp, "pcb-hibas-8bpp");
     morphology(pcb_hibas_8bpp, "pcb-hibas-8bpp7");
 
-    bugAlgo(bug, "bug");
-    bugAlgo(bug7, "bug7");
+    bugFollowAlgorithms(bug, "bug");
+    bugFollowAlgorithms(bug7, "bug7");
+
+    laws(laws_input, laws_texture, "laws_input");
+    laws(laws_input5, laws_texture5, "laws_input5");
     waitKey();
 
     return EXIT_SUCCESS;
@@ -376,7 +381,7 @@ Mat backtrackBugFollow(Mat src, string* code) {
     return trackImg;
 }
 
-void bugAlgo(Mat src, string name) {
+void bugFollowAlgorithms(Mat src, string name) {
     string bugFollowCode = "";
     string bugBacktrckCode = "";
     Mat bugFollowImage = bugFollow(src, &bugFollowCode);
@@ -395,124 +400,166 @@ void bugAlgo(Mat src, string name) {
 }
 
 //8. feladat
-Mat performConvolution(Mat src, Mat kernel) {
-    Mat convImg(src.rows, src.cols, CV_8UC1, Scalar(0, 0, 0));
-    int kernel_r = 1;
-    for (int i = 0; i < src.rows - (2 * kernel_r); i++) {
-        for (int j = 0; j < src.cols - (2 * kernel_r); j++) {
-            double value = 0;
-            for (int k = 0; k < 2 * kernel_r + 1; k++) {
-                for (int l = 0; l < 2 * kernel_r + 1; l++) {
-                    value += src.at<unsigned char>(i + k, j + l) * kernel.at<double>(k, l);
-                }
-            }
-            convImg.at<unsigned char>(i + kernel_r, j + kernel_r) = 3 * abs(value);
+Mat performConvolution(Mat src, Mat kernel){
+    Mat result = src.clone();
+    float sum = 0;
+    int radiusRows = (kernel.rows - 1) / 2;
+    int radiusCols = (kernel.cols - 1) / 2;
+
+    Mat dst(Size(src.cols * 3, src.rows * 3), src.type());
+    Mat roi;
+
+    for (int y = 0; y < 3; y++) {
+        for (int x = 0; x < 3; x++) {
+            roi = dst(Rect(src.cols * x, src.rows * y, src.cols, src.rows));
+            src.copyTo(roi);
         }
     }
-    return convImg;
-}
 
-Mat calculateEnergy(Mat src) {
-    int w = 15;
-    Mat energImg(src.rows, src.cols, CV_8UC1, Scalar(0, 0, 0));
-    double weight = 1 / pow(2 * w + 1, 2);
-    for (int i = w; i < src.rows - w; i++) {
-        for (int j = w; j < src.cols - w; j++) {
-            double value = 0;
-            for (int m = i - w; m < i + w; m++) {
-                for (int n = j - w; n < j + w; n++) {
-                    value += abs((double)src.at<uchar>(m, n));
+    for (int y = 0; y < src.rows; y++) {
+        for (int x = 0; x < src.cols; x++) {
+            for (int k = 0; k < kernel.rows; k++) {
+                for (int l = 0; l < kernel.cols; l++) {
+                    sum += (dst.at<uchar>(y - radiusRows + k + src.rows, x - radiusCols + l + src.cols)) * kernel.at<float>(k, l);
                 }
             }
-            energImg.at<uchar>(i, j) = weight * value;
+            result.at<uchar>(y, x) = saturate_cast<uchar>(sum);
+            sum = 0;
         }
+
     }
-    return energImg;
+    return result;
 }
 
-void laws(Mat inputSrc, Mat textureSrc, string name) {
-    Mat path(textureSrc.rows, textureSrc.cols, CV_8UC1, Scalar(0, 0, 0));
+float sampleTexture(Mat src, Mat kernel, int centerY, int centerX) {
+    float result = 0;
+    int radiusRows = (kernel.rows - 1) / 2;
+    int radiusCols = (kernel.cols - 1) / 2;
 
-    Mat l1 = (Mat_<double>(3, 3) << 1.0 / 36.0, 2.0 / 36.0, 1.0 / 36.0,
-        2.0 / 36.0, 4.0 / 36.0, 2.0 / 36.0,
-        1.0 / 36.0, 2.0 / 36.0, 1.0 / 36.0);
+    Mat dst(Size(src.cols * 3, src.rows * 3), src.type());
+    Mat roi;
 
-    Mat l2 = (Mat_<double>(3, 3) << 1.0 / 12.0, 0, -1.0 / 12.0,
-        2.0 / 12.0, 0, -2.0 / 12.0,
-        1.0 / 12.0, 0, -1.0 / 12.0);
+    for (int y = 0; y < 3; y++) {
+        for (int x = 0; x < 3; x++) {
+            roi = dst(Rect(src.cols * x, src.rows * y, src.cols, src.rows));
+            src.copyTo(roi);
+        }
+    }
 
-    Mat l3 = (Mat_<double>(3, 3) << -1.0 / 12.0, 2.0 / 12.0, -1.0 / 12.0,
-        -2.0 / 12.0, 4.0 / 12.0, -2.0 / 12.0,
-        -1.0 / 12.0, 2.0 / 12.0, -1.0 / 12.0);
+    for (int k = 0; k < kernel.rows; k++) {
+        for (int l = 0; l < kernel.cols; l++) {
+            result += (float)abs((dst.at<uchar>(centerY - radiusRows + k + src.rows, centerX - radiusCols + l + src.cols)));
+        }
+    }
+    result = result / (kernel.rows * kernel.rows);
+    return result;
+}
 
-    Mat l4 = (Mat_<double>(3, 3) << -1.0 / 12.0, -2.0 / 12.0, -1.0 / 12.0,
-        0.0, 0.0, 0.0,
-        1.0 / 12.0, 2.0 / 12.0, 1.0 / 12.0);
+vector<float> calculateEnergy(Mat texture, int centerY, int centerX) {
+    vector<float> result;
+    Mat sample = Mat::ones(31, 31, CV_32F) / (31 * 31);
 
-    Mat l5 = (Mat_<double>(3, 3) << 1.0 / 4.0, 0, -1.0 / 4.0,
-        0, 0, 0,
-        -1.0 / 4.0, 0, 1.0 / 4.0);
+    vector<Mat> kernels{
+        (Mat_<float>(3, 3) << 1, 2, 1, 2, 4, 2, 1, 2, 1) / 36,
+        (Mat_<float>(3, 3) << 1, 0, -1, 2, 0, -2, 1, 0, -1) / 12,
+        (Mat_<float>(3, 3) << -1, 2, -1, -2, 4, -2, -1, 2, -1) / 12,
+        (Mat_<float>(3, 3) << -1, -2, -1, 0, 0, 0, 1, 2, 1) / 12,
+        (Mat_<float>(3, 3) << 1, 0, -1, 0, 0, 0, -1, 0, 1) / 4,
+        (Mat_<float>(3, 3) << -1, 2, -1, 0, 0, 0, 1, -2, 1) / 4,
+        (Mat_<float>(3, 3) << -1, -2, -1, 2, 4, 2, -1, -2, -1) / 12,
+        (Mat_<float>(3, 3) << -1, 0, 1, 2, 0, -2, -1, 0, 1) / 4,
+        (Mat_<float>(3, 3) << 1, -2, 1, -2, 4, -2, 1, -2, 1) / 4 };
 
-    Mat l6 = (Mat_<double>(3, 3) << -1.0 / 4.0, 2.0 / 4.0, -1.0 / 4.0,
-        0, 0, 0,
-        1.0 / 4.0, -2.0 / 4.0, 1.0 / 4.0);
+    for (Mat i : kernels) {
+        result.push_back(sampleTexture(performConvolution(texture, i), sample, centerY, centerX));
+    }
 
-    Mat l7 = (Mat_<double>(3, 3) << -1.0 / 12.0, -2.0 / 12.0, -1.0 / 12.0,
-        2.0 / 12.0, 4.0 / 12.0, 2.0 / 12.0,
-        -1.0 / 12.0, -2.0 / 12.0, -1.0 / 12.0);
+    return result;
+}
 
-    Mat l8 = (Mat_<double>(3, 3) << -1.0 / 4.0, 0, 1.0 / 4.0,
-        2.0 / 4.0, 0, -2.0 / 4.0,
-        -1.0 / 4.0, 0, 1.0 / 4.0);
+Mat getEnergy(Mat src, Mat kernel) {
+    Mat result(src.cols, src.rows, CV_32F);
+    float sum = 0;
+    int radiusRows = (kernel.rows - 1) / 2;
+    int radiusCols = (kernel.cols - 1) / 2;
 
-    Mat l9 = (Mat_<double>(3, 3) << 1.0 / 4.0, -2.0 / 4.0, 1.0 / 4.0,
-        -2.0 / 4.0, 1.0, -2.0 / 4.0,
-        1.0 / 4.0, -2.0 / 4.0, 1.0 / 4.0);
+    Mat dst(Size(src.cols * 3, src.rows * 3), src.type());
+    Mat roi;
 
-    Mat sample1 = textureSrc(Rect(63 - 15, 49 - 15, 30, 30));
-    //Mat sample2 = src(Rect(63 - 15, 149 - 15, 30, 30));
-    //Mat sample3 = src(Rect(191 - 15, 49 - 15, 30, 30));
-    //Mat sample4 = src(Rect(191 - 15, 149 - 15, 30, 30));
+    for (int y = 0; y < 3; y++) {
+        for (int x = 0; x < 3; x++) {
+            roi = dst(Rect(src.cols * x, src.rows * y, src.cols, src.rows));
+            src.copyTo(roi);
+        }
+    }
 
-    Mat sample1Conv = performConvolution(textureSrc, l1);
-    Mat sample2Conv = performConvolution(textureSrc, l2);
-    Mat sample3Conv = performConvolution(textureSrc, l3);
-    Mat sample4Conv = performConvolution(textureSrc, l4);
-    Mat sample5Conv = performConvolution(textureSrc, l5);
-    Mat sample6Conv = performConvolution(textureSrc, l6);
-    Mat sample7Conv = performConvolution(textureSrc, l7);
-    Mat sample8Conv = performConvolution(textureSrc, l8);
-    Mat sample9Conv = performConvolution(textureSrc, l9);
+    for (int y = 0; y < src.rows; y++) {
+        for (int x = 0; x < src.cols; x++) {
+            for (int k = 0; k < kernel.rows; k++) {
+                for (int l = 0; l < kernel.cols; l++) {
+                    sum += abs((dst.at<uchar>(y - radiusRows + k + src.rows, x - radiusCols + l + src.cols))); //TODO
+                }
+            }
+            result.at<float>(y, x) = sum / (kernel.cols * kernel.cols);
+            sum = 0;
+        }
 
+    }
+    return result;
+}
 
-    Mat sample1Energy = calculateEnergy(sample1Conv);
-    Mat sample2Energy = calculateEnergy(sample2Conv);
-    Mat sample3Energy = calculateEnergy(sample3Conv);
-    Mat sample4Energy = calculateEnergy(sample4Conv);
-    Mat sample5Energy = calculateEnergy(sample5Conv);
-    Mat sample6Energy = calculateEnergy(sample6Conv);
-    Mat sample7Energy = calculateEnergy(sample7Conv);
-    Mat sample8Energy = calculateEnergy(sample8Conv);
-    Mat sample9Energy = calculateEnergy(sample9Conv);
+void laws(Mat src, Mat texture, string name) {
+    vector<Mat> src_conv;
+    vector<Mat> src_energies;
 
-    Mat inputConv1 = performConvolution(inputSrc, l1);
-    Mat inputConv2 = performConvolution(inputSrc, l2);
-    Mat inputConv3 = performConvolution(inputSrc, l3);
-    Mat inputConv4 = performConvolution(inputSrc, l4);
-    Mat inputConv5 = performConvolution(inputSrc, l5);
-    Mat inputConv6 = performConvolution(inputSrc, l6);
-    Mat inputConv7 = performConvolution(inputSrc, l7);
-    Mat inputConv8 = performConvolution(inputSrc, l8);
-    Mat inputConv9 = performConvolution(inputSrc, l9);
+    Mat laws_filtered = src.clone();
 
-    Mat inputEnergy1 = calculateEnergy(inputConv1);
-    Mat inputEnergy2 = calculateEnergy(inputConv2);
-    Mat inputEnergy3 = calculateEnergy(inputConv3);
-    Mat inputEnergy4 = calculateEnergy(inputConv4);
-    Mat inputEnergy5 = calculateEnergy(inputConv5);
-    Mat inputEnergy6 = calculateEnergy(inputConv6);
-    Mat inputEnergy7 = calculateEnergy(inputConv7);
-    Mat inputEnergy8 = calculateEnergy(inputConv8);
-    Mat inputEnergy9 = calculateEnergy(inputConv9);
+    vector<Mat> kernels {
+        (Mat_<float>(3, 3) << 1, 2, 1, 2, 4, 2, 1, 2, 1) / 36,
+        (Mat_<float>(3, 3) << 1, 0, -1, 2, 0, -2, 1, 0, -1) / 12,
+        (Mat_<float>(3, 3) << -1, 2, -1, -2, 4, -2, -1, 2, -1) / 12,
+        (Mat_<float>(3, 3) << -1, -2, -1, 0, 0, 0, 1, 2, 1) / 12,
+        (Mat_<float>(3, 3) << 1, 0, -1, 0, 0, 0, -1, 0, 1) / 4,
+        (Mat_<float>(3, 3) << -1, 2, -1, 0, 0, 0, 1, -2, 1) / 4,
+        (Mat_<float>(3, 3) << -1, -2, -1, 2, 4, 2, -1, -2, -1) / 12,
+        (Mat_<float>(3, 3) << -1, 0, 1, 2, 0, -2, -1, 0, 1) / 4,
+        (Mat_<float>(3, 3) << 1, -2, 1, -2, 4, -2, 1, -2, 1) / 4 };
 
+    vector<vector<float>> textures{
+        calculateEnergy(texture,49,63),
+        calculateEnergy(texture,149,63),
+        calculateEnergy(texture,49,191),
+        calculateEnergy(texture,149,191)
+    };
+
+    Mat sample = Mat::ones(31, 31, CV_32F);
+
+    for (Mat i : kernels) {
+        src_conv.push_back(performConvolution(src, i));
+    }
+
+    for (Mat i : src_conv) {
+        src_energies.push_back(getEnergy(i, sample));
+    }
+
+    float difference;
+    int index = 0, sum = 0;
+    vector<float> d;
+
+    for (int y = 0; y < laws_filtered.rows; y++) {
+        for (int x = 0; x < laws_filtered.cols; x++) {
+            for (vector<float> i : textures) {
+                for (int z = 0; z < kernels.size(); z++) {
+                    sum += abs(i.at(z) - src_energies.at(z).at<float>(y, x));
+                }
+                d.push_back(sum);
+                sum = 0;
+            }
+            index = std::min_element(d.begin(), d.end()) - d.begin();
+            laws_filtered.at<uchar>(y, x) = 255 - index * 70;
+            d.clear();
+        }
+    }
+
+    saveAndShowImage(laws_filtered, "laws/" + name + "_laws_filtered");
 }
